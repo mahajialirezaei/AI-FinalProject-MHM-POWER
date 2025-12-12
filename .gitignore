@@ -1,0 +1,35 @@
+# Heavy model/checkpoint files
+*.pt
+*.pth
+*.pth.tar
+*.ckpt
+*.h5
+*.pkl
+
+# Model and raw data folders (project-root relative)
+/models/
+/data/raw/
+
+# Python related
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtual env / env files
+.env
+.venv/
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Editor/OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs and temporary files
+*.log
+tmp/
+temp/
