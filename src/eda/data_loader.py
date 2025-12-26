@@ -9,6 +9,7 @@ from pathlib import Path
 
 def load_config(config_path: str = "config/config.yaml") -> dict:
     """Load configuration from YAML file."""
+
     project_root = Path(__file__).parent.parent.parent
 
     full_config_path = project_root / config_path
