@@ -89,7 +89,7 @@ def load_and_preprocess_data(raw_filepath, processed_dir):
 
 if __name__ == "__main__":
     project_root = Path(__file__).parent.parent.parent
-    bank_full_path = "data/raw/bank-full.csv"
+    bank_full_path = "data/raw/bank/bank-full.csv"
     dataset_path = project_root / bank_full_path
     processed_path = project_root / "data/processed"
 
