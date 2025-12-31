@@ -31,8 +31,7 @@ def load_processed_data(data_dir):
         train_df = pd.read_csv(data_dir / "train.csv")
         val_df = pd.read_csv(data_dir / "val.csv")
 
-        # جدا کردن ویژگی‌ها و هدف
-        # فرض بر این است که نام ستون هدف در فایل قبلی 'target' ذخیره شده است
+
         X_train = train_df.drop(columns=['target'])
         y_train = train_df['target']
 
@@ -53,9 +52,9 @@ def train_baseline_model(X_train, y_train):
     """
     print("\nStarting Baseline Model Training (Logistic Regression)...")
 
-    # استفاده از class_weight=None برای مشاهده عدم تعادل (طبق استراتژی فاز ۱)
-    # max_iter افزایش یافته تا همگرایی روی داده‌های استاندارد شده تضمین شود
+
     model = LogisticRegression(
+        class_weight='balanced',
         random_state=42,
         max_iter=1000,
         solver='lbfgs',
@@ -73,11 +72,9 @@ def evaluate_model(model, X_val, y_val, phase_name="Baseline"):
     """
     print(f"\nEvaluating {phase_name} Model...")
 
-    # پیش‌بینی کلاس‌ها و احتمالات
     y_pred = model.predict(X_val)
     y_prob = model.predict_proba(X_val)[:, 1]
 
-    # محاسبه متریک‌ها
     metrics = {
         "Accuracy": accuracy_score(y_val, y_pred),
         "Precision": precision_score(y_val, y_pred, zero_division=0),
