@@ -1,11 +1,15 @@
 # 📋 Project Overview
 
+[![CI Pipeline](https://github.com/USERNAME/REPO_NAME/actions/workflows/ci.yml/badge.svg)](https://github.com/USERNAME/REPO_NAME/actions/workflows/ci.yml)
+
 This project performs comprehensive **Exploratory Data Analysis (EDA)**, **Data Preprocessing**, and **Baseline Modeling** on the UCI Bank Marketing dataset. The primary goal is to analyze marketing campaign data and predict whether a client will subscribe to a term deposit (variable `y`).
 
 * **Dataset**: UCI Bank Marketing Dataset
 * **Task**: Binary Classification (Yes/No subscription prediction)
 * **Instances**: 45,211 (`bank-full.csv`)
 * **Features**: 16 input variables + 1 target variable
+
+> **Note**: Replace `USERNAME` and `REPO_NAME` in the CI badge URL above with your GitHub username and repository name.
 
 ---
 
@@ -213,6 +217,15 @@ Run tests to ensure everything works correctly:
 pytest tests/
 
 ```
+
+### Continuous Integration (CI/CD)
+
+This project uses GitHub Actions for automated CI/CD. The pipeline automatically runs:
+- Code quality checks (formatting, linting, type checking)
+- Test suite execution
+- Script verification (EDA and preprocessing)
+
+For detailed information about the CI/CD pipeline, see [CI_GUIDE.md](CI_GUIDE.md).
 
 ---
 
