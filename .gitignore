@@ -27,10 +27,6 @@ venv/
 ENV/
 env/
 
-# Jupyter Notebook
-.ipynb_checkpoints/
-*.ipynb
-
 # PyCharm
 .idea/
 
