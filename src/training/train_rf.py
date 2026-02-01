@@ -22,7 +22,6 @@ RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def load_data():
-    """Load the processed datasets[cite: 961]."""
     train_df = pd.read_csv(DATA_PROCESSED_DIR / "train.csv")
     val_df = pd.read_csv(DATA_PROCESSED_DIR / "val.csv")
 
