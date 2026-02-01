@@ -1,0 +1,88 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.env
+.venv/
+venv/
+ENV/
+env/
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+*.ipynb
+
+# PyCharm
+.idea/
+
+# VS Code
+.vscode/
+
+# Data files (keep structure, ignore actual data)
+/data/raw/
+/data/external/
+/data/processed/*.csv
+/data/processed/*.pkl
+/data/processed/*.parquet
+
+# Model files
+/models/*.pkl
+/models/*.pt
+/models/*.pth
+/models/*.h5
+/models/*.ckpt
+/models/*.joblib
+
+# Reports and figures (generated files)
+/reports/figures/*.png
+/reports/figures/*.jpg
+/reports/figures/*.pdf
+/reports/*.html
+
+# Logs
+*.log
+logs/
+*.out
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.swp
+*~
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json

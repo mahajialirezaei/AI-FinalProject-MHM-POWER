@@ -1,0 +1,36 @@
+# Configuration file for Bank Marketing EDA Project
+
+# Data paths
+data:
+  raw: "data/raw/bank/bank-full.csv"
+  delimiter: ";"
+
+# Output paths
+output:
+  figures_dir: "reports/figures"
+
+# EDA settings
+eda:
+  numerical_vars:
+    - age
+    - balance
+    - day
+    - duration
+    - campaign
+    - pdays
+    - previous
+
+  categorical_vars:
+    - job
+    - marital
+    - education
+
+  target_var: "y"
+
+# Plotting settings
+plotting:
+  style: "whitegrid"
+  palette: "husl"
+  figure_size: [12, 6]
+  font_size: 10
+  dpi: 300
