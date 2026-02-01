@@ -66,7 +66,39 @@ def evaluate_and_save(model, X_val, y_val, feature_names):
     print(f"Model saved to {MODELS_DIR / 'random_forest_model.pkl'}")
 
 
+def plot_feature_importance(model, feature_names, save_dir):
+    print("\nExtracting Feature Importance...")
+
+    importances = model.feature_importances_
+    indices = np.argsort(importances)[::-1]
+
+    fi_df = pd.DataFrame({
+        'Feature': [feature_names[i] for i in indices],
+        'Importance': importances[indices]
+    })
+
+    plt.figure(figsize=(10, 8))
+    sns.barplot(x='Importance', y='Feature', data=fi_df.head(15), palette='viridis')
+    plt.title('Top 15 Important Features - Random Forest')
+    plt.xlabel('Mean Decrease in Impurity')
+    plt.tight_layout()
+
+    save_path = save_dir / "feature_importance_rf.png"
+    plt.savefig(save_path)
+    plt.close()
+    print(f"Feature importance plot saved to {save_path}")
+
+    print("Top 5 Features:")
+    print(fi_df.head(5))
+
+
 if __name__ == "__main__":
     X_train, y_train, X_val, y_val = load_data()
+
     rf_model = train_rf_with_cv(X_train, y_train)
+
     evaluate_and_save(rf_model, X_val, y_val, X_train.columns)
+
+    plot_feature_importance(rf_model, X_train.columns, RESULTS_DIR)
+
+    print("\nStep 3 completed successfully.")
