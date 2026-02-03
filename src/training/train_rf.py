@@ -11,6 +11,8 @@ from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score,
     roc_auc_score, confusion_matrix, classification_report
 )
+from imblearn.over_sampling import SMOTE
+from imblearn.pipeline import Pipeline as ImbPipeline
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 DATA_PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
@@ -34,35 +36,45 @@ def load_data():
 
 
 def train_rf_with_cv(X_train, y_train):
-    print("Initializing Random Forest Classifier...")
+    print("Initializing SMOTE and Random Forest Pipeline...")
 
     rf_model = RandomForestClassifier(
         n_estimators=100,
-        class_weight='balanced',
         random_state=42,
         n_jobs=-1
     )
 
-    print("Running 5-Fold Cross-Validation...")
+    pipeline = ImbPipeline([
+        ('smote', SMOTE(random_state=42)),
+        ('rf', rf_model)
+    ])
+
+    print("Running 5-Fold Stratified Cross-Validation with SMOTE...")
     skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-    cv_scores = cross_val_score(rf_model, X_train, y_train, cv=skf, scoring='f1_weighted')
+
+    cv_scores = cross_val_score(pipeline, X_train, y_train, cv=skf, scoring='f1_weighted')
 
     print(f"CV F1-Scores: {cv_scores}")
     print(f"Mean CV F1-Score: {np.mean(cv_scores):.4f}")
 
-    rf_model.fit(X_train, y_train)
-    return rf_model
+    print("Fitting final model on all training data with SMOTE...")
+    pipeline.fit(X_train, y_train)
+
+    return pipeline.named_steps['rf']
 
 
 def evaluate_and_save(model, X_val, y_val, feature_names):
     y_pred = model.predict(X_val)
     y_prob = model.predict_proba(X_val)[:, 1]
 
-    print("\nValidation Set Performance:")
+    print("\nValidation Set Performance (After SMOTE):")
     print(classification_report(y_val, y_pred))
 
-    joblib.dump(model, MODELS_DIR / "random_forest_model.pkl")
-    print(f"Model saved to {MODELS_DIR / 'random_forest_model.pkl'}")
+    roc_auc = roc_auc_score(y_val, y_prob)
+    print(f"ROC-AUC Score: {roc_auc:.4f}")
+
+    joblib.dump(model, MODELS_DIR / "random_forest_model_smote.pkl")
+    print(f"Model saved to {MODELS_DIR / 'random_forest_model_smote.pkl'}")
 
 
 def plot_feature_importance(model, feature_names, save_dir):
@@ -78,17 +90,14 @@ def plot_feature_importance(model, feature_names, save_dir):
 
     plt.figure(figsize=(10, 8))
     sns.barplot(x='Importance', y='Feature', data=fi_df.head(15), palette='viridis')
-    plt.title('Top 15 Important Features - Random Forest')
+    plt.title('Top 15 Important Features - Random Forest (SMOTE)')
     plt.xlabel('Mean Decrease in Impurity')
     plt.tight_layout()
 
-    save_path = save_dir / "feature_importance_rf.png"
+    save_path = save_dir / "feature_importance_rf_smote.png"
     plt.savefig(save_path)
     plt.close()
     print(f"Feature importance plot saved to {save_path}")
-
-    print("Top 5 Features:")
-    print(fi_df.head(5))
 
 
 if __name__ == "__main__":
@@ -100,4 +109,4 @@ if __name__ == "__main__":
 
     plot_feature_importance(rf_model, X_train.columns, RESULTS_DIR)
 
-    print("\nStep 3 completed successfully.")
+    print("\nStep 3 (with SMOTE) completed successfully.")
