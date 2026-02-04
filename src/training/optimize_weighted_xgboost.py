@@ -1,15 +1,15 @@
 import optuna
+# CRITICAL IMPORT: This enables the matplotlib plotting backend
+import optuna.visualization.matplotlib as optuna_plt 
 import pandas as pd
 import numpy as np
 import xgboost as xgb
 import joblib
 import matplotlib.pyplot as plt
-import seaborn as sns  # Added for plotting
+import seaborn as sns
 from pathlib import Path
 from sklearn.model_selection import cross_val_score, StratifiedKFold
 from sklearn.metrics import classification_report, roc_auc_score, f1_score
-from imblearn.over_sampling import SMOTE
-from imblearn.pipeline import Pipeline as ImbPipeline
 
 # ==========================================
 # CONFIGURATION
@@ -39,10 +39,17 @@ def load_data():
     except FileNotFoundError:
         raise FileNotFoundError(f"Data not found. Run preprocessing first.")
 
-def objective(trial, X, y):
+def calculate_scale_pos_weight(y):
+    """Calculates the weight for the positive class."""
+    num_neg = (y == 0).sum()
+    num_pos = (y == 1).sum()
+    weight = num_neg / num_pos
+    return weight
+
+def objective(trial, X, y, scale_pos_weight):
     """
     Optuna Objective Function.
-    This function is called repeatedly with different parameter combinations.
+    Optimizes XGBoost hyperparameters WITH scale_pos_weight (No SMOTE).
     """
     
     # 1. Define the Search Space
@@ -56,6 +63,8 @@ def objective(trial, X, y):
         'min_child_weight': trial.suggest_int('min_child_weight', 1, 10),
         'reg_alpha': trial.suggest_float('reg_alpha', 0, 10),
         'reg_lambda': trial.suggest_float('reg_lambda', 0, 10),
+        # Crucial: Apply the calculated weight here
+        'scale_pos_weight': scale_pos_weight,
         # Fixed parameters
         'objective': 'binary:logistic',
         'eval_metric': 'logloss',
@@ -63,30 +72,34 @@ def objective(trial, X, y):
         'n_jobs': -1
     }
 
-    # 2. Construct Pipeline with SMOTE
-    pipeline = ImbPipeline([
-        ('smote', SMOTE(random_state=42, k_neighbors=5)),
-        ('xgb', xgb.XGBClassifier(**param))
-    ])
+    # 2. Define Model (No Pipeline needed as we aren't using SMOTE)
+    model = xgb.XGBClassifier(**param)
 
     # 3. Stratified Cross-Validation
+    # We use 3 folds for speed during optimization
     cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
     
     # Optimize for F1 Score
-    scores = cross_val_score(pipeline, X, y, cv=cv, scoring='f1')
+    scores = cross_val_score(model, X, y, cv=cv, scoring='f1')
     
     return scores.mean()
 
 def run_optimization(n_trials=50):
     """Run the Optuna optimization study."""
+    # Silence Optuna logs
+    optuna.logging.set_verbosity(optuna.logging.WARNING)
+
     X_train, y_train, X_val, y_val = load_data()
 
-    print(f"\n[INFO] Starting Optuna Optimization with {n_trials} trials...")
-    print("       Target Metric: F1-Score (Maximize)")
+    # Calculate weight once
+    weight = calculate_scale_pos_weight(y_train)
+    print(f"[INFO] Calculated scale_pos_weight: {weight:.2f}")
+
+    print(f"\n[INFO] Starting Optuna Optimization (Weighted) with {n_trials} trials...")
     
     # Create Study
     study = optuna.create_study(direction='maximize')
-    study.optimize(lambda trial: objective(trial, X_train, y_train), n_trials=n_trials)
+    study.optimize(lambda trial: objective(trial, X_train, y_train, weight), n_trials=n_trials)
 
     print("\n" + "="*60)
     print("OPTIMIZATION RESULTS")
@@ -96,58 +109,47 @@ def run_optimization(n_trials=50):
     for key, value in study.best_params.items():
         print(f"  {key}: {value}")
     
-    return study, X_train, y_train, X_val, y_val
+    return study, X_train, y_train, X_val, y_val, weight
 
-def train_best_model(study, X_train, y_train, X_val, y_val):
+def train_best_model(study, X_train, y_train, X_val, y_val, weight):
     """Train the final model using the best parameters found."""
-    print("\n[INFO] Training Final Model with Best Parameters...")
+    print("\n[INFO] Training Final Weighted Model with Best Parameters...")
     
     best_params = study.best_params
     # Add fixed params back in
     best_params.update({
+        'scale_pos_weight': weight,
         'objective': 'binary:logistic',
         'eval_metric': 'logloss', 
-        'use_label_encoder': False,
         'random_state': 42,
         'n_jobs': -1
     })
 
-    final_pipeline = ImbPipeline([
-        ('smote', SMOTE(random_state=42)),
-        ('xgb', xgb.XGBClassifier(**best_params))
-    ])
-
-    final_pipeline.fit(X_train, y_train)
+    final_model = xgb.XGBClassifier(**best_params)
+    final_model.fit(X_train, y_train)
     
     # Evaluation
-    y_pred = final_pipeline.predict(X_val)
-    y_prob = final_pipeline.predict_proba(X_val)[:, 1]
+    y_pred = final_model.predict(X_val)
+    y_prob = final_model.predict_proba(X_val)[:, 1]
     
-    print("\nFinal Validation Report (Optimized Model):")
+    print("\nFinal Validation Report (Weighted Optimized Model):")
     print(classification_report(y_val, y_pred))
     print(f"ROC-AUC: {roc_auc_score(y_val, y_prob):.4f}")
     
     # Save Model
-    save_path = MODELS_DIR / "xgboost_optimized.pkl"
-    joblib.dump(final_pipeline, save_path)
+    save_path = MODELS_DIR / "xgboost_weighted_optimized.pkl"
+    joblib.dump(final_model, save_path)
     print(f"\n[SUCCESS] Optimized model saved to {save_path}")
     
-    return final_pipeline
+    return final_model
 
-def plot_feature_importance(pipeline, feature_names):
-    """
-    Extracts and plots feature importance from the Optimized XGBoost model.
-    """
-    print("\n[INFO] Generating Feature Importance Plot (Optimized)...")
+def plot_feature_importance(model, feature_names):
+    """Extracts and plots feature importance."""
+    print("\n[INFO] Generating Feature Importance Plot...")
     
-    # Access the XGBoost model step from the pipeline
-    model = pipeline.named_steps['xgb']
-    
-    # Get importances
     importances = model.feature_importances_
     indices = np.argsort(importances)[::-1]
     
-    # Create DataFrame for plotting
     fi_df = pd.DataFrame({
         'Feature': [feature_names[i] for i in indices],
         'Importance': importances[indices]
@@ -155,46 +157,65 @@ def plot_feature_importance(pipeline, feature_names):
 
     plt.figure(figsize=(12, 8))
     sns.barplot(x='Importance', y='Feature', data=fi_df.head(20), palette='magma')
-    plt.title('Top 20 Features - XGBoost (Optimized , smote)', fontsize=14, fontweight='bold')
+    plt.title('Top 20 Features - XGBoost (Weighted & Optimized)', fontsize=14, fontweight='bold')
     plt.xlabel('Gain (Feature Importance)', fontsize=12)
     plt.tight_layout()
 
-    save_path = RESULTS_DIR / "feature_importance_xgboost_optimized_smote.png"
+    save_path = RESULTS_DIR / "feature_importance_xgboost_weighted_opt.png"
     plt.savefig(save_path, dpi=300)
     plt.close()
     print(f"       Saved to: {save_path}")
 
-def plot_optimization_history(study):
-    """Generate Optuna visualization plots."""
+def plot_optuna_charts(study):
+    """
+    Plots Optimization History and Parameter Importance.
+    Includes error handling to prevent crashes if something fails.
+    """
+    print("\n[INFO] Generating Optuna History Charts...")
+
+    # 1. Optimization History
     try:
-        print("\n[INFO] Generating optimization plots...")
-        
-        # Plot optimization history
-        fig1 = optuna.visualization.matplotlib.plot_optimization_history(study)
+        plt.figure(figsize=(10, 6))
+        optuna_plt.plot_optimization_history(study)
+        plt.title("Optimization History (Weighted)", fontsize=14, fontweight='bold')
         plt.tight_layout()
-        plt.savefig(RESULTS_DIR / "optuna_history_smote.png")
-        plt.close()
         
-        # Plot parameter importance
-        fig2 = optuna.visualization.matplotlib.plot_param_importances(study)
-        plt.tight_layout()
-        plt.savefig(RESULTS_DIR / "optuna_param_importance_smote.png")
+        hist_path = RESULTS_DIR / "optuna_weighted_history.png"
+        plt.savefig(hist_path, dpi=300)
         plt.close()
-        
-        print(f"       Plots saved to {RESULTS_DIR}")
+        print(f"       [SUCCESS] History saved to {hist_path}")
     except Exception as e:
-        print(f"[WARN] Could not generate plots: {e}")
+        print(f"       [WARN] Optimization History plot failed: {e}")
+
+    # 2. Parameter Importance
+    try:
+        # Check if we have enough trials for importance
+        if len(study.trials) > 1:
+            plt.figure(figsize=(10, 8))
+            optuna_plt.plot_param_importances(study)
+            #plt.title("Hyperparameter Importance", fontsize=14, fontweight='bold')
+            plt.tight_layout()
+            
+            imp_path = RESULTS_DIR / "optuna_weighted_param_importance.png"
+            plt.savefig(imp_path, dpi=300)
+            plt.close()
+            print(f"       [SUCCESS] Importance saved to {imp_path}")
+        else:
+            print("       [WARN] Skipping importance plot (need >1 trial)")
+    except Exception as e:
+        print(f"       [WARN] Parameter Importance plot failed: {e}")
+
 
 if __name__ == "__main__":
     # 1. Run Optimization
-    # NOTE: Set n_trials higher (e.g., 50) for real results
-    study, X_train, y_train, X_val, y_val = run_optimization(n_trials=30)
+    # NOTE: n_trials must be > 1 for parameter importance to work
+    study, X_train, y_train, X_val, y_val, weight = run_optimization(n_trials=60)
     
     # 2. Train Final Model
-    final_pipeline = train_best_model(study, X_train, y_train, X_val, y_val)
+    final_model = train_best_model(study, X_train, y_train, X_val, y_val, weight)
     
-    # 3. Plot Feature Importance (NEW STEP)
-    plot_feature_importance(final_pipeline, X_train.columns)
-    
-    # 4. Visualize Optimization History
-    plot_optimization_history(study)
+    # 3. Plot Feature Importance
+    plot_feature_importance(final_model, X_train.columns)
+
+    # 4. Plot Optuna History (Re-added as requested)
+    plot_optuna_charts(study)

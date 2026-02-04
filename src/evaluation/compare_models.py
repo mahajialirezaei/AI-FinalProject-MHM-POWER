@@ -3,35 +3,57 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import joblib
 import numpy as np
+import yaml
 from pathlib import Path
 from sklearn.metrics import f1_score, recall_score, precision_score, roc_auc_score, accuracy_score
 
+# ==========================================
+# CONFIGURATION
+# ==========================================
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 DATA_PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 MODELS_DIR = PROJECT_ROOT / "src" / "models"
 RESULTS_DIR = PROJECT_ROOT / "results" / "charts"
+CONFIG_PATH = PROJECT_ROOT / "config" / "config.yaml"
 
 # Ensure results directory exists
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
-def evaluate_model(model_path, X, y, model_name="Model"):
+def load_config():
+    """Load project configuration to get the best threshold."""
+    if not CONFIG_PATH.exists():
+        print("[WARN] Config file not found. Using default threshold 0.5")
+        return {}
+    with open(CONFIG_PATH, "r") as f:
+        return yaml.safe_load(f)
+
+def evaluate_model(model_path, X, y, model_name="Model", threshold=None):
     """
-    Evaluates a model if the file exists. 
-    Returns None if file is missing (to prevent crashes).
+    Evaluates a model. If threshold is provided, uses it for predictions.
     """
     if not model_path.exists():
-        print(f"[WARN] {model_name} not found at {model_path}. Skipping.")
+        print(f"[WARN] {model_name} not found at {model_path.name}. Skipping.")
         return None
 
     try:
         model = joblib.load(model_path)
-        y_pred = model.predict(X)
         
-        # Handle models that might not have predict_proba (just in case)
+        # Get probabilities (needed for AUC and Custom Threshold)
         if hasattr(model, "predict_proba"):
             y_prob = model.predict_proba(X)[:, 1]
         else:
-            y_prob = [0] * len(y) # Dummy values if probability not available
+            y_prob = np.zeros(len(y))
+            if threshold is not None:
+                print(f"[WARN] {model_name} does not support probabilities. Ignoring threshold.")
+                threshold = None
+
+        # Generate Predictions
+        if threshold is not None:
+            # Apply Custom Threshold
+            y_pred = (y_prob >= threshold).astype(int)
+        else:
+            # Default Model Behavior (usually 0.5)
+            y_pred = model.predict(X)
 
         return {
             "Accuracy": accuracy_score(y, y_pred),
@@ -46,7 +68,7 @@ def evaluate_model(model_path, X, y, model_name="Model"):
 
 
 def run_comparison():
-    # 1. Load Data
+    # 1. Load Validation Data
     try:
         val_df = pd.read_csv(DATA_PROCESSED_DIR / "val.csv")
         X_val = val_df.drop(columns=['target'])
@@ -55,62 +77,82 @@ def run_comparison():
         print("Error: Validation data not found.")
         return
 
-    # 2. Collect Metrics (Dictionary to hold all results)
+    # 2. Get Best Threshold from Config
+    config = load_config()
+    best_threshold = config.get("model", {}).get("threshold", 0.5)
+    print(f"[INFO] Using Production Threshold from Config: {best_threshold}")
+
+    # 3. Collect Metrics
     all_metrics = {}
 
-    # --- Original Models (Preserved) ---
+    # --- A. Baseline & Phase 2 Models (Standard 0.5 Threshold) ---
     baseline_metrics = evaluate_model(MODELS_DIR / "baseline_logreg.pkl", X_val, y_val, "Baseline")
-    if baseline_metrics:
-        all_metrics["Baseline (LogReg)"] = baseline_metrics
+    if baseline_metrics: all_metrics["Baseline"] = baseline_metrics
 
     rf_metrics = evaluate_model(MODELS_DIR / "random_forest_model_smote.pkl", X_val, y_val, "Random Forest")
-    if rf_metrics:
-        all_metrics["Random Forest"] = rf_metrics
+    if rf_metrics: all_metrics["Random Forest"] = rf_metrics
 
-    # --- New Models (Added) ---
     xgb_metrics = evaluate_model(MODELS_DIR / "xgboost_model_smote.pkl", X_val, y_val, "XGBoost (Manual)")
-    if xgb_metrics:
-        all_metrics["XGBoost (Manual)"] = xgb_metrics
+    if xgb_metrics: all_metrics["XGBoost (Manual)"] = xgb_metrics
 
-    opt_metrics = evaluate_model(MODELS_DIR / "xgboost_optimized.pkl", X_val, y_val, "XGBoost (Optuna)")
-    if opt_metrics:
-        all_metrics["XGBoost (Optimized)"] = opt_metrics
+    opt_metrics = evaluate_model(MODELS_DIR / "xgboost_optimized.pkl", X_val, y_val, "XGBoost (Optimized)")
+    if opt_metrics: all_metrics["XGBoost (Optimized)"] = opt_metrics
+    
+    weighted_metrics = evaluate_model(MODELS_DIR / "xgboost_weighted_optimized.pkl", X_val, y_val, "XGBoost (Weighted)")
+    if weighted_metrics: all_metrics["XGBoost (Weighted)"] = weighted_metrics
 
-    # 3. Create Comparison DataFrame
+    # --- B. Production Model (Custom Threshold) ---
+    # We evaluate the Weighted Optimized model AGAIN, but with the specific threshold
+    prod_metrics = evaluate_model(
+        MODELS_DIR / "xgboost_weighted_optimized.pkl", 
+        X_val, 
+        y_val, 
+        f"Production (Thresh={best_threshold})", 
+        threshold=best_threshold
+    )
+    if prod_metrics:
+        all_metrics["Production (Best)"] = prod_metrics
+
+
+    # 4. Generate DataFrame and Plot
     if not all_metrics:
-        print("No models found to compare.")
+        print("No models found.")
         return
 
-    # Helper to construct DataFrame dynamically based on what was found
-    # We use the keys of the first available metric as the "Metric" column
+    # Dynamic DataFrame Construction
     first_metric = list(all_metrics.values())[0]
     data = {"Metric": list(first_metric.keys())}
-    
     for model_name, metrics in all_metrics.items():
         data[model_name] = list(metrics.values())
 
     comparison_df = pd.DataFrame(data)
 
-    print("\n--- Comprehensive Model Comparison ---")
-    print(comparison_df)
+    print("\n--- Final Model Comparison Table ---")
+    print(comparison_df.round(4))
 
-    # 4. Generate Plot
+    # Plot
     df_melted = comparison_df.melt(id_vars="Metric", var_name="Model", value_name="Score")
     
-    plt.figure(figsize=(12, 6))
-    sns.barplot(data=df_melted, x="Metric", y="Score", hue="Model", palette="viridis")
-    plt.title("Model Performance Comparison: Baseline vs RF vs XGBoost")
-    plt.ylim(0, 1.1)
-    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.figure(figsize=(14, 7))
+    
+    # 1. Capture the axes object 'ax'
+    ax = sns.barplot(data=df_melted, x="Metric", y="Score", hue="Model", palette="viridis")
+    
+    plt.title(f"Impact of Optimization & Threshold Tuning (Best Thresh={best_threshold})", fontsize=14, fontweight='bold')
+    plt.ylim(0, 1.15) # Increased slightly to make room for text
+    plt.legend(bbox_to_anchor=(1.01, 1), loc='upper left', borderaxespad=0)
     plt.grid(axis='y', alpha=0.3)
+    
+    # 2. Add values on top of bars
+    for container in ax.containers:
+        ax.bar_label(container, fmt='%.2f', padding=3, fontsize=9)
+    
     plt.tight_layout()
 
-    # 5. Save to a NEW file
-    save_path = RESULTS_DIR / "comparison_all_models.png"
+    save_path = RESULTS_DIR / "comparison_production_final.png"
     plt.savefig(save_path, dpi=300)
     plt.close()
-    print(f"\nNew comparison plot saved to {save_path}")
-    
+    print(f"\n[SUCCESS] Final comparison plot saved to {save_path}")
 
 
 if __name__ == "__main__":
