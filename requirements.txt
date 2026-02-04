@@ -6,3 +6,4 @@ pyyaml>=6.0
 scikit-learn>=1.7.0
 xgboost>=1.7.0
 imbalanced-learn>=0.10.0
+optuna>=3.0.0

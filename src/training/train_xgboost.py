@@ -64,7 +64,6 @@ def train_xgboost_pipeline(X_train, y_train):
         'colsample_bytree': 0.8,
         'objective': 'binary:logistic',
         'eval_metric': 'logloss',
-        'use_label_encoder': False,
         'random_state': 42,
         'n_jobs': -1
         # Note: scale_pos_weight is omitted intentionally because we are using SMOTE.
