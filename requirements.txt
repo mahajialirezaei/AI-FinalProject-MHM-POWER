@@ -4,3 +4,5 @@ seaborn>=0.12.0
 numpy>=1.21.0
 pyyaml>=6.0
 scikit-learn>=1.7.0
+xgboost>=1.7.0
+imbalanced-learn>=0.10.0

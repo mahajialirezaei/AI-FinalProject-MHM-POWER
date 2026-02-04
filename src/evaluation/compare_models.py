@@ -31,12 +31,14 @@ def run_comparison():
     y_val = val_df['target']
 
     baseline_metrics = evaluate_model(MODELS_DIR / "baseline_logreg.pkl", X_val, y_val)
-    rf_metrics = evaluate_model(MODELS_DIR / "random_forest_model.pkl", X_val, y_val)
+    rf_metrics = evaluate_model(MODELS_DIR / "random_forest_model_smote.pkl", X_val, y_val)
+    xgboost_metrics = evaluate_model(MODELS_DIR / "xgboost_model_smote.pkl", X_val, y_val)
 
     comparison_df = pd.DataFrame({
         "Metric": list(baseline_metrics.keys()),
         "Baseline (LogReg)": list(baseline_metrics.values()),
-        "Random Forest": list(rf_metrics.values())
+        "Random Forest": list(rf_metrics.values()),
+        "XGBoost": list(xgboost_metrics.values())
     })
 
     print("\n--- Model Comparison Table ---")
