@@ -25,44 +25,45 @@ AI-FinalProject-MHM-POWER/
 │
 ├── results/                    # Model evaluation artifacts
 │   ├── charts/                 # Performance plots and analysis
-│   │   ├── feature_importance_rf.png
-│   │   ├── baseline_vs_rf_comparison.png
-│   │   ├── comparison_production_final.png  # Final Industrial Comparison
-│   │   └── confusion_matrix_baseline.png
+│   │   ├── roc_comparison_all.png         # ROC Curve comparing ALL models
+│   │   ├── shap_summary_plot.png          # SHAP Global Importance
+│   │   ├── shap_force_plot_customer_0.png # SHAP Local Interpretation
+│   │   ├── cm_xgboost_weighted_optimized.png # Champion Model Confusion Matrix
+│   │   ├── comparison_production_final.png
+│   │   └── ... (other confusion matrices)
 │   ├── tuning/                 # Threshold tuning artifacts
 │   │   └── threshold_tuning_curve.png
 │   └── optimization/           # Optuna optimization plots
 │
 ├── src/                        # Source code
 │   ├── eda/                    # EDA module
+│   │   ├── data_loader.py
+│   │   ├── visualizations.py
+│   │   └── main.py
 │   ├── evaluation/             # Model comparison and evaluation logic
-│   │   ├── compare_models.py   # Script to compare all models
-│   │   ├── tune_threshold.py   # Auto-tunes decision threshold
-│   │   └── final_report.py     # Generates production report
-│   ├── inference/              # Production Inference Engine
-│   │   ├── app.py              # FastAPI application
-│   │   ├── predictor.py        # Model wrapper class
-│   │   └── schemas.py          # Pydantic data schemas
+│   │   ├── compare_models.py   # Compares all trained models
+│   │   ├── evaluate_final_model.py # Evaluates Champion Model (ROC/CM)
+│   │   ├── explainability_shap.py  # Generates SHAP explanations
+│   │   └── tune_threshold.py   # Auto-tunes decision threshold
 │   ├── models/                 # Serialized models (.pkl files)
 │   │   ├── baseline_logreg.pkl
 │   │   ├── random_forest_model.pkl
-│   │   ├── xgboost_model_smote.pkl         # XGBoost trained with SMOTE
-│   │   ├── xgboost_optimized.pkl           # Optimized XGBoost (SMOTE)
-│   │   ├── xgboost_weighted.pkl            # Weighted XGBoost (No SMOTE)
+│   │   ├── xgboost_model_smote.pkl
+│   │   ├── xgboost_optimized.pkl
+│   │   ├── xgboost_weighted.pkl
 │   │   └── xgboost_weighted_optimized.pkl  # Champion Model
 │   ├── preprocessing/          # Data transformation
 │   │   └── main.py             # Main preprocessing script
 │   └── training/               # Training pipelines
 │       ├── train_baseline.py   # Phase 1: Logistic Regression
 │       ├── train_rf.py         # Phase 2: Random Forest
-│       ├── train_xgboost.py                # Phase 2: XGBoost + SMOTE
-│       ├── optimize_xgboost.py             # Phase 2: Optimization (SMOTE)
-│       ├── train_weighted_xgboost.py       # Phase 2: Weighted XGBoost
-│       └── optimize_weighted_xgboost.py    # Phase 2: Optimization (Weighted)
+│       ├── train_xgboost.py            # Phase 2: XGBoost + SMOTE
+│       ├── optimize_xgboost.py         # Phase 2: Optimization (SMOTE)
+│       ├── train_weighted_xgboost.py   # Phase 2: Weighted XGBoost
+│       └── optimize_weighted_xgboost.py # Phase 2: Optimization (Weighted)
 │
 ├── tests/                      # Unit and Smoke tests
-│   └── test_data_loader.py
-│   └── __init__.py
+│   ├── test_data_loader.py
 │   └── test_smoke.py
 ├── requirements.txt            # Python dependencies
 └── README.md                   # This file
@@ -84,45 +85,38 @@ AI-FinalProject-MHM-POWER/
 This phase represents the iterative journey to find the best performing model for an imbalanced dataset, culminating in deployment.
 
 4. **Random Forest Training**:
+
 * **Goal**: Establish a strong tree-based baseline.
 * **Technique**: Uses `class_weight='balanced'` to handle the 88/12 imbalance.
 * **Result**: High accuracy but low recall; the model struggled to find minority class instances.
 
-
 5. **XGBoost with SMOTE (Manual)**:
+
 * **Goal**: Improve Recall by synthesizing new data.
 * **Technique**: Applied **SMOTE (Synthetic Minority Over-sampling Technique)** to generate synthetic examples of subscribers before training XGBoost.
 * **Outcome**: Improved Recall compared to Random Forest, but Precision dropped due to the noise introduced by synthetic data.
 
-
 6. **Optimized XGBoost with SMOTE**:
+
 * **Goal**: Refine the SMOTE-based model.
 * **Technique**: Used **Optuna** to search for the best hyperparameters (learning rate, depth) specifically for the SMOTE-augmented dataset.
 * **Outcome**: Slight improvement in F1-Score (0.41), but the "synthetic" nature of the data still limited performance.
 
-
 7. **Weighted XGBoost (The Breakthrough)**:
+
 * **Goal**: Train on pure data without synthetic noise.
 * **Technique**: Removed SMOTE and utilized XGBoost's native `scale_pos_weight` parameter to mathematically penalize mistakes on the positive class.
 * **Outcome**: Significant jump in Recall (to ~58%) and ROC-AUC, proving that preserving the original data distribution was superior to SMOTE for this specific dataset.
 
-
 8. **Champion Model Optimization (Weighted + Optuna)**:
+
 * **Technique**: Ran Bayesian Optimization on the Weighted XGBoost model.
 * **Result**: Produced the `xgboost_weighted_optimized.pkl` model, achieving the highest ROC-AUC of **0.789**.
 
-
 9. **Threshold Tuning**:
+
 * **Technique**: Adjusted the decision boundary from the default `0.5` to an optimized **0.5611**.
 * **Impact**: Maximized the F1-Score for the "Yes" class, balancing the trade-off between missing customers and annoying them with false calls.
-
-
-10. **Production Deployment (Inference API)**:
-* **Tool**: Built a high-performance **FastAPI** service (`src/inference/app.py`).
-* **Functionality**: Serves the optimized model + custom threshold via a REST API.
-* **Command**: `uvicorn src.inference.app:app --reload`.
-
-
 
 ---
 
@@ -147,13 +141,14 @@ Run these commands from the project root (`AI-FinalProject-MHM-POWER/`) to repro
 | **Weighted XGB** | `python -m src.training.train_weighted_xgboost` | Trains Weighted XGBoost (No SMOTE) |
 | **Champion Optimization** | `python -m src.training.optimize_weighted_xgboost` | **(Best)** Optimizes Weighted XGBoost |
 
-### 3. Evaluation & Deployment
+### 3. Evaluation & Explainability (New)
 
 | Task | Command | Description |
 | --- | --- | --- |
 | **Tune Threshold** | `python -m src.evaluation.tune_threshold` | Finds best threshold & updates `config.yaml` |
-| **Compare All** | `python -m src.evaluation.compare_models` | Generates comparison charts & metrics |
-| **Start API** | `uvicorn src.inference.app:app --reload` | Starts the Prediction API at `localhost:8000` |
+| **Compare Models** | `python -m src.evaluation.compare_models` | Generates ROC/Metrics for all models |
+| **Final Evaluation** | `python -m src.evaluation.evaluate_final_model` | **ROC & Confusion Matrix** for Champion Model |
+| **SHAP Analysis** | `python -m src.evaluation.explainability_shap` | Generates **SHAP** plots for interpretability |
 | **Smoke Tests** | `pytest -v -m smoke` | Verifies pipeline integrity |
 
 ---
@@ -180,9 +175,12 @@ Run these commands from the project root (`AI-FinalProject-MHM-POWER/`) to repro
 
 ### Industrial Model Results (`results/charts/` & `results/tuning/`)
 
-* `comparison_production_final.png`: **NEW**: Bar chart proving the Production model outperforms all previous versions.
+* `roc_comparison_all.png`: **Critical**: Comparison of ROC curves for all developed models.
+* `shap_summary_plot.png`: **Explainability**: Shows which features (e.g., Balance, Campaign) drive predictions.
+* `shap_force_plot_*.png`: Local explanation for specific customer predictions.
+* `cm_xgboost_weighted_optimized.png`: Confusion Matrix of the final Champion model.
+* `comparison_production_final.png`: Bar chart proving the Production model outperforms all previous versions.
 * `feature_importance_rf.png`: Bar chart showing the top 15 features influencing the RF model.
-* `confusion_matrix_baseline.png`: Visualizing True Positives vs. False Negatives.
 
 ---
 
@@ -199,6 +197,7 @@ Run the automated **Smoke Tests** to verify the training and preprocessing pipel
 ```bash
 pytest -v -m smoke tests/test_smoke.py
 
+
 ```
 
 ---
@@ -213,7 +212,5 @@ pytest -v -m smoke tests/test_smoke.py
 ## 📝 License
 
 This project is for educational purposes as part of an AI Final Project.
-
-```
 
 ```
