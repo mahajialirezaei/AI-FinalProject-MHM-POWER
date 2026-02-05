@@ -2,7 +2,7 @@
 
 This project performs comprehensive **Exploratory Data Analysis (EDA)**, **Data Preprocessing**, and **Industrial Machine Learning Modeling** on the UCI Bank Marketing dataset. The primary goal is to predict whether a client will subscribe to a term deposit (variable `y`) while addressing real-world challenges like class imbalance.
 
-* **Dataset**: UCI Bank Marketing Dataset
+* **Dataset**: [UCI Bank Marketing Dataset](https://archive.ics.uci.edu/dataset/222/bank+marketing)
 * **Task**: Binary Classification
 * **Instances**: 45,211 (`bank-full.csv`)
 * **Features**: 16 input variables + 1 target variable
@@ -126,9 +126,11 @@ Run these commands from the project root (`AI-FinalProject-MHM-POWER/`) to repro
 
 ### 1. Data Preparation
 
-| Task | Command | Description |
+| Task | Command | Output Location |
 | --- | --- | --- |
-| **Preprocess Data** | `python -m src.preprocessing.main` | Cleans, splits, and saves data to `data/processed/` |
+| **Run EDA** | `python -m src.eda.main` | `reports/figures/` |
+| **Preprocess Data** | `python -m src.preprocessing.main` | `data/processed/` |
+| **Train Baseline** | `python -m src.training.train_baseline` | `src/models/baseline_logreg.pkl` |
 
 ### 2. Training & Optimization
 
