@@ -34,3 +34,8 @@ plotting:
   figure_size: [12, 6]
   font_size: 10
   dpi: 300
+
+# Model Inference Settings
+model:
+  path: "src/models/xgboost_weighted_optimized.pkl"
+  threshold: 0.5974526405334473
