@@ -98,8 +98,12 @@ def run_comparison():
     opt_metrics = evaluate_model(MODELS_DIR / "xgboost_optimized.pkl", X_val, y_val, "XGBoost (Optimized)")
     if opt_metrics: all_metrics["XGBoost (Optimized)"] = opt_metrics
     
-    weighted_metrics = evaluate_model(MODELS_DIR / "xgboost_weighted_optimized.pkl", X_val, y_val, "XGBoost (Weighted)")
+    weighted_metrics = evaluate_model(MODELS_DIR / "xgboost_weighted.pkl", X_val, y_val, "XGBoost (Weighted)")
     if weighted_metrics: all_metrics["XGBoost (Weighted)"] = weighted_metrics
+    
+    opt_weighted_metrics = evaluate_model(MODELS_DIR / "xgboost_weighted_optimized.pkl", X_val, y_val, "XGBoost (Weighted optimized)")
+    if opt_weighted_metrics: all_metrics["XGBoost (Weighted optimized)"] = opt_weighted_metrics
+
 
     # --- B. Production Model (Custom Threshold) ---
     # We evaluate the Weighted Optimized model AGAIN, but with the specific threshold
@@ -128,7 +132,7 @@ def run_comparison():
     comparison_df = pd.DataFrame(data)
 
     print("\n--- Final Model Comparison Table ---")
-    print(comparison_df.round(4))
+    print(comparison_df.round(7))
 
     # Plot
     df_melted = comparison_df.melt(id_vars="Metric", var_name="Model", value_name="Score")
@@ -145,7 +149,7 @@ def run_comparison():
     
     # 2. Add values on top of bars
     for container in ax.containers:
-        ax.bar_label(container, fmt='%.2f', padding=3, fontsize=9)
+        ax.bar_label(container, fmt='%.2f', padding=3, fontsize=8)
     
     plt.tight_layout()
 
