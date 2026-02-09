@@ -27,10 +27,6 @@ venv/
 ENV/
 env/
 
-# Jupyter Notebook
-.ipynb_checkpoints/
-*.ipynb
-
 # PyCharm
 .idea/
 
@@ -45,7 +41,7 @@ env/
 /data/processed/*.parquet
 
 # Model files
-/models/*.pkl
+/src/models/*.pkl
 /models/*.pt
 /models/*.pth
 /models/*.h5
@@ -57,6 +53,11 @@ env/
 /reports/figures/*.jpg
 /reports/figures/*.pdf
 /reports/*.html
+/results/charts
+/results/*
+
+# Services
+/wandb
 
 # Logs
 *.log

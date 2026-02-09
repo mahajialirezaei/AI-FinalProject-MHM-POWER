@@ -7,6 +7,8 @@ This project performs comprehensive **Exploratory Data Analysis (EDA)**, **Data 
 * **Instances**: 45,211 (`bank-full.csv`)
 * **Features**: 16 input variables + 1 target variable
 
+> **Note**: Replace `USERNAME` and `REPO_NAME` in the CI badge URL above with your GitHub username and repository name.
+
 ---
 
 ## 📁 Project Structure
@@ -201,6 +203,15 @@ pytest -v -m smoke tests/test_smoke.py
 
 
 ```
+
+### Continuous Integration (CI/CD)
+
+This project uses GitHub Actions for automated CI/CD. The pipeline automatically runs:
+- Code quality checks (formatting, linting, type checking)
+- Test suite execution
+- Script verification (EDA and preprocessing)
+
+For detailed information about the CI/CD pipeline, see [CI_GUIDE.md](CI_GUIDE.md).
 
 ---
 
