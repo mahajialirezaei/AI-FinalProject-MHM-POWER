@@ -41,7 +41,7 @@ env/
 /data/processed/*.parquet
 
 # Model files
-/models/*.pkl
+/src/models/*.pkl
 /models/*.pt
 /models/*.pth
 /models/*.h5
@@ -53,6 +53,10 @@ env/
 /reports/figures/*.jpg
 /reports/figures/*.pdf
 /reports/*.html
+/results/charts
+
+# Services
+/wandb
 
 # Logs
 *.log

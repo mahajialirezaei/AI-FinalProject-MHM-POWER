@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import joblib
+import wandb
 from pathlib import Path
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import cross_val_score, StratifiedKFold
@@ -49,6 +50,15 @@ def train_rf_with_cv(X_train, y_train):
         ('rf', rf_model)
     ])
 
+    # Log hyperparameters to WandB
+    wandb.config.update({
+        "model_type": "RandomForest",
+        "n_estimators": 100,
+        "random_state": 42,
+        "smote_enabled": True,
+        "cv_folds": 5
+    })
+
     print("Running 5-Fold Stratified Cross-Validation with SMOTE...")
     skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 
@@ -56,6 +66,14 @@ def train_rf_with_cv(X_train, y_train):
 
     print(f"CV F1-Scores: {cv_scores}")
     print(f"Mean CV F1-Score: {np.mean(cv_scores):.4f}")
+
+    # Log CV scores to WandB
+    for i, score in enumerate(cv_scores):
+        wandb.log({f"cv_fold_{i+1}_f1": score})
+    wandb.log({
+        "mean_cv_f1": np.mean(cv_scores),
+        "std_cv_f1": np.std(cv_scores)
+    })
 
     print("Fitting final model on all training data with SMOTE...")
     pipeline.fit(X_train, y_train)
@@ -68,13 +86,39 @@ def evaluate_and_save(model, X_val, y_val, feature_names):
     y_prob = model.predict_proba(X_val)[:, 1]
 
     print("\nValidation Set Performance (After SMOTE):")
+    report = classification_report(y_val, y_pred, output_dict=True)
     print(classification_report(y_val, y_pred))
 
     roc_auc = roc_auc_score(y_val, y_prob)
     print(f"ROC-AUC Score: {roc_auc:.4f}")
 
+    # Log metrics to WandB
+    wandb.log({
+        "val_accuracy": report['accuracy'],
+        "val_precision": report['weighted avg']['precision'],
+        "val_recall": report['weighted avg']['recall'],
+        "val_f1": report['weighted avg']['f1-score'],
+        "val_roc_auc": roc_auc
+    })
+
+    # Log confusion matrix
+    cm = confusion_matrix(y_val, y_pred)
+    wandb.log({
+        "confusion_matrix": wandb.plot.confusion_matrix(
+            probs=None,
+            y_true=y_val,
+            preds=y_pred,
+            class_names=["Class 0", "Class 1"]
+        )
+    })
+
     joblib.dump(model, MODELS_DIR / "random_forest_model_smote.pkl")
     print(f"Model saved to {MODELS_DIR / 'random_forest_model_smote.pkl'}")
+
+    # Log model as artifact
+    artifact = wandb.Artifact('random_forest_model', type='model')
+    artifact.add_file(str(MODELS_DIR / "random_forest_model_smote.pkl"))
+    wandb.log_artifact(artifact)
 
 
 def plot_feature_importance(model, feature_names, save_dir):
@@ -96,11 +140,22 @@ def plot_feature_importance(model, feature_names, save_dir):
 
     save_path = save_dir / "feature_importance_rf_smote.png"
     plt.savefig(save_path)
+
+    # Log feature importance plot to WandB
+    wandb.log({"feature_importance": wandb.Image(str(save_path))})
+
     plt.close()
     print(f"Feature importance plot saved to {save_path}")
 
 
 if __name__ == "__main__":
+    # Initialize WandB
+    wandb.init(
+        project="ai-finalproject-mhm-power",
+        name="random-forest-smote",
+        tags=["random-forest", "smote", "baseline"]
+    )
+
     X_train, y_train, X_val, y_val = load_data()
 
     rf_model = train_rf_with_cv(X_train, y_train)
@@ -110,3 +165,6 @@ if __name__ == "__main__":
     plot_feature_importance(rf_model, X_train.columns, RESULTS_DIR)
 
     print("\nStep 3 (with SMOTE) completed successfully.")
+
+    # Finish WandB run
+    wandb.finish()

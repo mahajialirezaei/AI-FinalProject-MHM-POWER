@@ -8,3 +8,4 @@ xgboost>=1.7.0
 imbalanced-learn>=0.10.0
 optuna>=3.0.0
 ruamel.yaml>=0.17.0
+wandb>=0.16.0
