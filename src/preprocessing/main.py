@@ -7,7 +7,7 @@ from sklearn.preprocessing import StandardScaler, OneHotEncoder, LabelEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer  # اضافه شد برای مدیریت NaN ها
 from sklearn.pipeline import Pipeline  # اضافه شد برای ساخت پایپ‌لاین تمیزتر
-
+import pickle
 
 def load_and_preprocess_data(raw_filepath, processed_dir):
     try:
@@ -83,6 +83,9 @@ def load_and_preprocess_data(raw_filepath, processed_dir):
     print(f"Train shape: {train_df.shape}")
     print(f"Val shape: {val_df.shape}")
     print(f"Test shape: {test_df.shape}")
+    
+    with open('preprocessor.pkl', 'wb') as f:
+        pickle.dump(preprocessor, f)
 
     return train_df, val_df, test_df
 

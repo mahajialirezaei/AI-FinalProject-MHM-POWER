@@ -54,6 +54,7 @@ env/
 /reports/figures/*.pdf
 /reports/*.html
 /results/charts
+/results/*
 
 # Services
 /wandb
