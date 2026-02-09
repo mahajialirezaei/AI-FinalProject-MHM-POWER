@@ -45,12 +45,12 @@ env/
 /data/processed/*.parquet
 
 # Model files
-/models/*.pkl
-/models/*.pt
-/models/*.pth
-/models/*.h5
-/models/*.ckpt
-/models/*.joblib
+src/models/*.pkl
+src/models/*.pt
+src/models/*.pth
+src/models/*.h5
+src/models/*.ckpt
+src/models/*.joblib
 
 # Reports and figures (generated files)
 /reports/figures/*.png
