@@ -38,4 +38,4 @@ plotting:
 # Model Inference Settings
 model:
   path: "src/models/xgboost_weighted_optimized.pkl"
-  threshold: 0.5
+  threshold: 0.5974526405334473
