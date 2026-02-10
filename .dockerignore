@@ -1,0 +1,123 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.env
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.idea/
+.vscode/
+.cursor/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Data files (large, should be mounted as volumes if needed)
+/data/raw/
+/data/external/
+/data/processed/*.csv
+/data/processed/*.pkl
+/data/processed/*.parquet
+
+# Model files (should be mounted or copied separately)
+# Uncomment if you want to exclude models from image
+# /src/models/*.pkl
+# /src/models/*.joblib
+
+# Preprocessor files (should be mounted or copied separately)
+# Uncomment if you want to exclude preprocessor from image
+# /src/preprocessing/*.pkl
+# /src/preprocessing/*.joblib
+
+# Reports and figures (generated files)
+/reports/figures/*.png
+/reports/figures/*.jpg
+/reports/figures/*.pdf
+/reports/*.html
+/results/charts/
+/results/optimization/
+/results/tuning/
+/results/*.png
+/results/*.jpg
+/results/*.pdf
+/results/*.html
+
+# WandB (experiment tracking)
+wandb/
+**/wandb/
+.wandb/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+
+# Streamlit cache (will be created at runtime)
+.streamlit/
+.streamlit_cache/
+
+# Logs
+*.log
+logs/
+*.out
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.swp
+*~
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# CI/CD
+.github/
+
+# Documentation (optional, uncomment if you want to exclude)
+# docs/
+# *.md
+# README.md
+
+# Environment variables
+.env.local
+.env.*.local
+*.env
