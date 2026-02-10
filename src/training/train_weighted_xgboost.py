@@ -1,12 +1,10 @@
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
 import joblib
 import xgboost as xgb
 from pathlib import Path
 from sklearn.model_selection import cross_val_score, StratifiedKFold
-from sklearn.metrics import classification_report, roc_auc_score, f1_score, confusion_matrix
+from sklearn.metrics import classification_report, roc_auc_score, f1_score
 from src.training.wandb_utils import (
     init_wandb,
     log_metrics,
@@ -53,7 +51,7 @@ def train_weighted_model(X_train, y_train):
     num_pos = (y_train == 1).sum()
     weight = num_neg / num_pos
 
-    print(f"\n[INFO] Class Imbalance Detected:")
+    print("\n[INFO] Class Imbalance Detected:")
     print(f"       Negative samples: {num_neg}")
     print(f"       Positive samples: {num_pos}")
     print(f"       Calculated scale_pos_weight: {weight:.2f}")

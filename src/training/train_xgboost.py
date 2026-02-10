@@ -10,9 +10,6 @@ from sklearn.metrics import (
     classification_report,
     roc_auc_score,
     f1_score,
-    confusion_matrix,
-    precision_recall_curve,
-    auc,
 )
 from imblearn.over_sampling import SMOTE
 from imblearn.pipeline import Pipeline as ImbPipeline

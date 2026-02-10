@@ -1,8 +1,6 @@
 import pytest
 import pandas as pd
-import yaml
 import joblib
-import os
 from pathlib import Path
 import sys
 
@@ -11,7 +9,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 # Mock wandb before importing training modules to avoid CI failures
-import unittest.mock
+import unittest.mock  # noqa: E402
 
 wandb_mock = unittest.mock.MagicMock()
 wandb_mock.init.return_value = None
@@ -26,12 +24,12 @@ wandb_mock.Artifact.return_value = wandb_mock
 sys.modules["wandb"] = wandb_mock
 
 # Import ALL training modules (after mocking wandb)
-from src.preprocessing.main import load_and_preprocess_data
-from src.eda.data_loader import load_config
-from src.training.train_baseline import train_baseline_model
-from src.training.train_rf import train_rf_with_cv
-from src.training.train_xgboost import train_xgboost_pipeline
-from src.training.train_weighted_xgboost import train_weighted_model
+from src.preprocessing.main import load_and_preprocess_data  # noqa: E402
+from src.eda.data_loader import load_config  # noqa: E402
+from src.training.train_baseline import train_baseline_model  # noqa: E402
+from src.training.train_rf import train_rf_with_cv  # noqa: E402
+from src.training.train_xgboost import train_xgboost_pipeline  # noqa: E402
+from src.training.train_weighted_xgboost import train_weighted_model  # noqa: E402
 
 # ==========================================
 # FIXTURES & MOCK DATA
@@ -39,7 +37,8 @@ from src.training.train_weighted_xgboost import train_weighted_model
 
 # Increased Mock Data to satisfy n_splits=5 in Cross-Validation
 # We need at least 5 samples for each class ('yes' and 'no')
-MOCK_CSV_CONTENT = """age;job;marital;education;default;balance;housing;loan;contact;day;month;duration;campaign;pdays;previous;poutcome;y
+MOCK_CSV_CONTENT = (  # noqa: E501
+    """age;job;marital;education;default;balance;housing;loan;contact;day;month;duration;campaign;pdays;previous;poutcome;y
 58;management;married;tertiary;no;2143;yes;no;cellular;5;may;261;1;-1;0;unknown;no
 44;technician;single;secondary;no;29;yes;no;cellular;5;may;151;1;-1;0;unknown;no
 33;entrepreneur;married;secondary;no;2;yes;yes;cellular;5;may;76;1;-1;0;failure;yes
@@ -57,6 +56,7 @@ MOCK_CSV_CONTENT = """age;job;marital;education;default;balance;housing;loan;con
 41;admin;married;secondary;no;1100;yes;no;telephone;5;may;310;1;-1;0;unknown;no
 46;blue-collar;married;primary;no;60;yes;no;cellular;5;may;160;1;-1;0;success;yes
 """
+)
 
 
 @pytest.fixture(scope="session")
@@ -119,7 +119,6 @@ def test_02_preprocessing(setup_environment):
     assert "duration" not in train_df.columns, "Duration column found (data leakage risk)"
 
     # Verify preprocessor was saved
-    preprocessor_path = PROJECT_ROOT / "src" / "preprocessing" / "preprocessor.pkl"
     # Note: In test environment, preprocessor might be saved to temp dir
     # This check is informational
 

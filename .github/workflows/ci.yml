@@ -64,7 +64,11 @@ jobs:
       run: |
         mkdir -p data/raw/bank
         wget -O /tmp/bank-marketing.zip "https://archive.ics.uci.edu/static/public/222/bank+marketing.zip"
-        unzip -j /tmp/bank-marketing.zip "bank-full.csv" -d data/raw/bank/
+        unzip -j /tmp/bank-marketing.zip "*.csv" -d data/raw/bank/
+        # Rename to bank-full.csv if needed
+        if [ ! -f "data/raw/bank/bank-full.csv" ]; then
+          mv data/raw/bank/*.csv data/raw/bank/bank-full.csv
+        fi
         rm /tmp/bank-marketing.zip
 
     - name: Run tests
@@ -96,7 +100,11 @@ jobs:
       run: |
         mkdir -p data/raw/bank
         wget -O /tmp/bank-marketing.zip "https://archive.ics.uci.edu/static/public/222/bank+marketing.zip"
-        unzip -j /tmp/bank-marketing.zip "bank-full.csv" -d data/raw/bank/
+        unzip -j /tmp/bank-marketing.zip "*.csv" -d data/raw/bank/
+        # Rename to bank-full.csv if needed
+        if [ ! -f "data/raw/bank/bank-full.csv" ]; then
+          mv data/raw/bank/*.csv data/raw/bank/bank-full.csv
+        fi
         rm /tmp/bank-marketing.zip
 
     - name: Run EDA script

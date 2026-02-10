@@ -11,7 +11,7 @@ import sys
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.eda.data_loader import load_data, get_data_info
+from src.eda.data_loader import load_data, get_data_info  # noqa: E402
 
 
 def test_load_data():

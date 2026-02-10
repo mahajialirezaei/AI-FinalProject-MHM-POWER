@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from pathlib import Path
 from sklearn.model_selection import cross_val_score, StratifiedKFold
-from sklearn.metrics import classification_report, roc_auc_score, f1_score, confusion_matrix
+from sklearn.metrics import classification_report, roc_auc_score, f1_score
 from src.training.wandb_utils import (
     init_wandb,
     log_metrics,
@@ -107,7 +107,7 @@ def run_optimization(n_trials=50):
 
     # Calculate weight once
     weight = calculate_scale_pos_weight(y_train)
-    print(f"[INFO] Calculated scale_pos_weight: {weight:.2f}")
+    print(f"[INFO] Calculated scale_pos_weight: {weight:.2f}")  # noqa: F541
 
     print(f"\n[INFO] Starting Optuna Optimization (Weighted) with {n_trials} trials...")
 

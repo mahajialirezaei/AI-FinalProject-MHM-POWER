@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns  # Added for plotting
 from pathlib import Path
 from sklearn.model_selection import cross_val_score, StratifiedKFold
-from sklearn.metrics import classification_report, roc_auc_score, f1_score, confusion_matrix
+from sklearn.metrics import classification_report, roc_auc_score, f1_score
 from imblearn.over_sampling import SMOTE
 from imblearn.pipeline import Pipeline as ImbPipeline
 from src.training.wandb_utils import (
@@ -92,7 +92,7 @@ def run_optimization(n_trials=50):
     """Run the Optuna optimization study."""
     X_train, y_train, X_val, y_val = load_data()
 
-    print(f"\n[INFO] Starting Optuna Optimization with {n_trials} trials...")
+    print(f"\n[INFO] Starting Optuna Optimization with {n_trials} trials...")  # noqa: F541
     print("       Target Metric: F1-Score (Maximize)")
 
     # Log optimization config to WandB
@@ -232,7 +232,7 @@ def plot_optimization_history(study):
         print("\n[INFO] Generating optimization plots...")
 
         # Plot optimization history
-        fig1 = optuna.visualization.matplotlib.plot_optimization_history(study)
+        optuna.visualization.matplotlib.plot_optimization_history(study)
         plt.tight_layout()
         hist_path = RESULTS_DIR / "optuna_history_smote.png"
         plt.savefig(hist_path)
@@ -242,7 +242,7 @@ def plot_optimization_history(study):
         log_image(str(hist_path), "optimization_history")
 
         # Plot parameter importance
-        fig2 = optuna.visualization.matplotlib.plot_param_importances(study)
+        optuna.visualization.matplotlib.plot_param_importances(study)
         plt.tight_layout()
         imp_path = RESULTS_DIR / "optuna_param_importance_smote.png"
         plt.savefig(imp_path)

@@ -9,7 +9,6 @@ import joblib
 import pandas as pd
 import numpy as np
 import plotly.express as px
-import plotly.graph_objects as go
 from pathlib import Path
 import yaml
 
@@ -201,7 +200,8 @@ st.markdown(
     '<div class="main-header">🏦 Bank Marketing Campaign Predictor</div>', unsafe_allow_html=True
 )
 st.markdown(
-    '<div class="sub-header">AI-powered prediction system for term deposit subscription probability</div>',
+    '<div class="sub-header">AI-powered prediction system for term deposit '
+    'subscription probability</div>',
     unsafe_allow_html=True,
 )
 
@@ -472,14 +472,16 @@ if predict_button:
                 with col_info2:
                     # Decision based on threshold
                     if row["Probability"] >= threshold:
-                        st.success(f"✅ **Recommendation:** Contact customer")
+                        st.success("✅ **Recommendation:** Contact customer")
                         st.info(
-                            f"Probability exceeds threshold by {(row['Probability'] - threshold):.2%}"
+                            f"Probability exceeds threshold by "
+                            f"{(row['Probability'] - threshold):.2%}"
                         )
                     else:
-                        st.warning(f"⚠️ **Recommendation:** Do not contact")
+                        st.warning("⚠️ **Recommendation:** Do not contact")
                         st.info(
-                            f"Probability below threshold by {(threshold - row['Probability']):.2%}"
+                            f"Probability below threshold by "
+                            f"{(threshold - row['Probability']):.2%}"
                         )
 
         # Final recommendation
@@ -514,13 +516,15 @@ if predict_button:
             agreement = (above_threshold / total_models) * 100
             st.progress(agreement / 100)
             st.caption(
-                f"{above_threshold}/{total_models} models recommend contact ({agreement:.0f}% agreement)"
+                f"{above_threshold}/{total_models} models recommend contact "
+                f"({agreement:.0f}% agreement)"
             )
 
         with col_insight2:
             st.markdown("**Probability Range:**")
             st.info(
-                f"Lowest: {min_prob:.2%} | Highest: {max_prob:.2%} | Spread: {(max_prob - min_prob):.2%}"
+                f"Lowest: {min_prob:.2%} | Highest: {max_prob:.2%} | "
+                f"Spread: {(max_prob - min_prob):.2%}"
             )
 
     except Exception as e:

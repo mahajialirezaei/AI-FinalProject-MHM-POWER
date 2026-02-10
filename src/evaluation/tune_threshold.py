@@ -6,7 +6,6 @@ import seaborn as sns
 from pathlib import Path
 from sklearn.metrics import (
     precision_recall_curve,
-    f1_score,
     confusion_matrix,
     classification_report,
 )
@@ -25,7 +24,7 @@ RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def load_resources():
-    print(f"[INFO] Loading data and champion model...")
+    print("[INFO] Loading data and champion model...")
     try:
         val_df = pd.read_csv(DATA_PROCESSED_DIR / "val.csv")
         X_val = val_df.drop(columns=["target"])
@@ -94,7 +93,7 @@ def save_threshold_to_config(threshold, model_rel_path):
     with open(CONFIG_PATH, "w") as f:
         yaml.dump(config, f)
 
-    print(f"       [SUCCESS] Updated config.yaml (Comments Preserved).")
+    print("[SUCCESS] Updated config.yaml (Comments Preserved).")
 
 
 def evaluate_new_threshold(model, X_val, y_val, threshold):

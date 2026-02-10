@@ -5,7 +5,6 @@ Visualization functions for EDA
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-import numpy as np
 from pathlib import Path
 import yaml
 
@@ -68,7 +67,7 @@ def plot_class_imbalance(
 
     # Bar plot
     ax1 = axes[0]
-    bars = ax1.bar(
+    ax1.bar(
         target_counts.index,
         target_counts.values,
         color=["#3498db", "#e74c3c"],
@@ -238,7 +237,7 @@ def plot_numerical_analysis(
 
     # Boxplot for balance
     ax2 = axes[1]
-    box_plot = ax2.boxplot(
+    ax2.boxplot(
         df["balance"],
         vert=True,
         patch_artist=True,
@@ -261,7 +260,7 @@ def plot_numerical_analysis(
     upper_bound = Q3 + 1.5 * IQR
     outliers = df[(df["balance"] < lower_bound) | (df["balance"] > upper_bound)]
 
-    print(f"\nBalance Outlier Statistics:")
+    print("\nBalance Outlier Statistics:")
     print(f"  Q1: {Q1:.2f}")
     print(f"  Q3: {Q3:.2f}")
     print(f"  IQR: {IQR:.2f}")
