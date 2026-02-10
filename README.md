@@ -109,7 +109,15 @@ The dataset will be automatically downloaded during preprocessing, or you can ma
 
 ```bash
 mkdir -p data/raw/bank
-wget -O data/raw/bank/bank-full.csv "https://archive.ics.uci.edu/ml/machine-learning-databases/00222/bank-full.csv"
+wget -O /tmp/bank-marketing.zip "https://archive.ics.uci.edu/static/public/222/bank+marketing.zip"
+unzip -j /tmp/bank-marketing.zip "bank-full.csv" -d data/raw/bank/
+rm /tmp/bank-marketing.zip
+```
+
+Alternatively, you can use the Python package:
+```bash
+pip install ucimlrepo
+python -c "from ucimlrepo import fetch_ucirepo; bank = fetch_ucirepo(id=222); bank.data.features.to_csv('data/raw/bank/bank-full.csv', index=False, sep=';')"
 ```
 
 ## 🚀 Quick Start

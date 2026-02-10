@@ -63,8 +63,9 @@ jobs:
     - name: Download dataset
       run: |
         mkdir -p data/raw/bank
-        wget -O data/raw/bank/bank-full.csv "https://archive.ics.uci.edu/ml/machine-learning-databases/00222/bank-full.csv"
-        wget -O data/raw/bank/bank-names.txt "https://archive.ics.uci.edu/ml/machine-learning-databases/00222/bank-names.txt"
+        wget -O /tmp/bank-marketing.zip "https://archive.ics.uci.edu/static/public/222/bank+marketing.zip"
+        unzip -j /tmp/bank-marketing.zip "bank-full.csv" -d data/raw/bank/
+        rm /tmp/bank-marketing.zip
 
     - name: Run tests
       run: |
@@ -94,8 +95,9 @@ jobs:
     - name: Download dataset
       run: |
         mkdir -p data/raw/bank
-        wget -O data/raw/bank/bank-full.csv "https://archive.ics.uci.edu/ml/machine-learning-databases/00222/bank-full.csv"
-        wget -O data/raw/bank/bank-names.txt "https://archive.ics.uci.edu/ml/machine-learning-databases/00222/bank-names.txt"
+        wget -O /tmp/bank-marketing.zip "https://archive.ics.uci.edu/static/public/222/bank+marketing.zip"
+        unzip -j /tmp/bank-marketing.zip "bank-full.csv" -d data/raw/bank/
+        rm /tmp/bank-marketing.zip
 
     - name: Run EDA script
       run: |
@@ -117,7 +119,7 @@ jobs:
 
     - name: Upload generated artifacts
       if: always()
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: generated-files
         path: |

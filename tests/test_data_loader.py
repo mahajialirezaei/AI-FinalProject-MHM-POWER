@@ -21,7 +21,7 @@ def test_load_data():
         df = load_data()
         assert isinstance(df, pd.DataFrame)
         assert len(df) > 0
-        assert 'y' in df.columns
+        assert "y" in df.columns
     except FileNotFoundError:
         pytest.skip("Data file not found - skipping test")
 
@@ -32,12 +32,11 @@ def test_get_data_info():
     try:
         df = load_data()
         info = get_data_info(df)
-        
-        assert 'shape' in info
-        assert 'columns' in info
-        assert 'dtypes' in info
-        assert isinstance(info['shape'], tuple)
-        assert len(info['shape']) == 2
+
+        assert "shape" in info
+        assert "columns" in info
+        assert "dtypes" in info
+        assert isinstance(info["shape"], tuple)
+        assert len(info["shape"]) == 2
     except FileNotFoundError:
         pytest.skip("Data file not found - skipping test")
-

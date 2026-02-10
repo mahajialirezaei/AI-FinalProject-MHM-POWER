@@ -16,7 +16,7 @@ from src.eda.visualizations import (
     plot_numerical_analysis,
     plot_correlation_heatmap,
     plot_seasonality,
-    plot_duration_analysis
+    plot_duration_analysis,
 )
 
 
@@ -49,11 +49,11 @@ RECOMMENDATION:
 def main():
     """Main function to run EDA."""
     config_path = "config/config.yaml"
-    
+
     # 1. Data Loading
     print_section("1. LOADING DATA")
     df = load_data(config_path=config_path)
-    
+
     data_info = get_data_info(df)
     print(f"Dataset shape: {data_info['shape']}")
     print(f"\nFirst few rows:")
@@ -62,7 +62,7 @@ def main():
     print(df.info())
     print(f"\nBasic statistics:")
     print(df.describe())
-    
+
     # 2. Class Imbalance Analysis
     print_section("2. CLASS IMBALANCE ANALYSIS")
     target_counts, target_percentages = plot_class_imbalance(df, config_path=config_path)
@@ -70,30 +70,30 @@ def main():
     print(target_counts)
     print(f"\nPercentages:")
     print(target_percentages)
-    
+
     # 3. Categorical Conversion Rate Analysis
     print_section("3. CATEGORICAL CONVERSION RATE ANALYSIS")
     plot_categorical_conversion(df, config_path=config_path)
-    
+
     # 4. Numerical Variables & Outliers Analysis
     print_section("4. NUMERICAL VARIABLES & OUTLIERS ANALYSIS")
     outlier_stats = plot_numerical_analysis(df, config_path=config_path)
-    
+
     # 5. Correlation Heatmap
     print_section("5. CORRELATION HEATMAP")
     correlation_matrix = plot_correlation_heatmap(df, config_path=config_path)
-    
+
     # 6. Seasonality Analysis
     print_section("6. SEASONALITY ANALYSIS")
     monthly_stats = plot_seasonality(df, config_path=config_path)
-    
+
     # 7. Duration Analysis
     print_section("7. DURATION ANALYSIS")
     duration_stats = plot_duration_analysis(df, config_path=config_path)
-    
+
     # Data Leakage Warning
     print_data_leakage_warning()
-    
+
     # Summary
     print_section("EDA COMPLETE - SUMMARY")
     print(f"\n[OK] Dataset loaded: {data_info['shape'][0]} rows, {data_info['shape'][1]} columns")
@@ -109,4 +109,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

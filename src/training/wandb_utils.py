@@ -14,13 +14,13 @@ def load_wandb_config(config_path: str = "config/config.yaml") -> Dict[str, Any]
     """Load wandb configuration from config file."""
     project_root = Path(__file__).resolve().parent.parent.parent
     full_config_path = project_root / config_path
-    
+
     if not full_config_path.exists():
         return {"enabled": False, "mode": "offline"}
-    
-    with open(full_config_path, 'r') as f:
+
+    with open(full_config_path, "r") as f:
         config = yaml.safe_load(f)
-    
+
     wandb_config = config.get("wandb", {})
     return {
         "enabled": wandb_config.get("enabled", True),
@@ -34,11 +34,11 @@ def init_wandb(
     run_name: str,
     tags: Optional[list] = None,
     config: Optional[Dict[str, Any]] = None,
-    config_path: str = "config/config.yaml"
+    config_path: str = "config/config.yaml",
 ) -> Optional[wandb.run]:
     """
     Initialize WandB with configuration support.
-    
+
     Parameters:
     -----------
     run_name : str
@@ -49,30 +49,30 @@ def init_wandb(
         Additional config to log
     config_path : str
         Path to config file
-        
+
     Returns:
     --------
     wandb.run or None
         Returns None if wandb is disabled
     """
     wandb_config = load_wandb_config(config_path)
-    
+
     # Check if wandb is disabled
     if not wandb_config.get("enabled", True):
         print("[WandB] Disabled in config. Skipping initialization.")
         return None
-    
+
     # Check environment variable (takes precedence)
     env_mode = os.getenv("WANDB_MODE", "").lower()
     if env_mode in ["offline", "disabled"]:
         wandb_config["mode"] = env_mode
-    
+
     mode = wandb_config.get("mode", "online")
-    
+
     if mode == "disabled":
         print("[WandB] Disabled. Skipping initialization.")
         return None
-    
+
     # Prepare init parameters
     init_params = {
         "project": wandb_config.get("project", "ai-finalproject-mhm-power"),
@@ -80,13 +80,13 @@ def init_wandb(
         "mode": mode,
         "tags": tags or [],
     }
-    
+
     if wandb_config.get("entity"):
         init_params["entity"] = wandb_config["entity"]
-    
+
     if config:
         init_params["config"] = config
-    
+
     try:
         run = wandb.init(**init_params)
         print(f"[WandB] Initialized in {mode} mode: {run_name}")
@@ -133,14 +133,16 @@ def log_confusion_matrix(y_true, y_pred, class_names=None):
     """Log confusion matrix to WandB if enabled."""
     if wandb.run is not None:
         try:
-            wandb.log({
-                "confusion_matrix": wandb.plot.confusion_matrix(
-                    probs=None,
-                    y_true=y_true,
-                    preds=y_pred,
-                    class_names=class_names or ["Class 0", "Class 1"]
-                )
-            })
+            wandb.log(
+                {
+                    "confusion_matrix": wandb.plot.confusion_matrix(
+                        probs=None,
+                        y_true=y_true,
+                        preds=y_pred,
+                        class_names=class_names or ["Class 0", "Class 1"],
+                    )
+                }
+            )
         except Exception as e:
             print(f"[WandB] Warning: Failed to log confusion matrix: {e}")
 

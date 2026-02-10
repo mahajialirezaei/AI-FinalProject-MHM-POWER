@@ -12,6 +12,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 # Mock wandb before importing training modules to avoid CI failures
 import unittest.mock
+
 wandb_mock = unittest.mock.MagicMock()
 wandb_mock.init.return_value = None
 wandb_mock.finish.return_value = None
@@ -22,7 +23,7 @@ wandb_mock.plot.confusion_matrix.return_value = None
 wandb_mock.Image.return_value = None
 wandb_mock.Artifact.return_value = wandb_mock
 
-sys.modules['wandb'] = wandb_mock
+sys.modules["wandb"] = wandb_mock
 
 # Import ALL training modules (after mocking wandb)
 from src.preprocessing.main import load_and_preprocess_data
@@ -57,6 +58,7 @@ MOCK_CSV_CONTENT = """age;job;marital;education;default;balance;housing;loan;con
 46;blue-collar;married;primary;no;60;yes;no;cellular;5;may;160;1;-1;0;success;yes
 """
 
+
 @pytest.fixture(scope="session")
 def setup_environment(tmp_path_factory):
     """
@@ -66,25 +68,27 @@ def setup_environment(tmp_path_factory):
     raw_dir = temp_dir / "data" / "raw" / "bank"
     processed_dir = temp_dir / "data" / "processed"
     models_dir = temp_dir / "src" / "models"
-    
+
     raw_dir.mkdir(parents=True, exist_ok=True)
     processed_dir.mkdir(parents=True, exist_ok=True)
     models_dir.mkdir(parents=True, exist_ok=True)
-    
+
     raw_data_path = raw_dir / "bank-full.csv"
     with open(raw_data_path, "w") as f:
         f.write(MOCK_CSV_CONTENT)
-        
+
     return {
         "root": temp_dir,
         "raw_path": raw_data_path,
         "processed_dir": processed_dir,
-        "models_dir": models_dir
+        "models_dir": models_dir,
     }
+
 
 # ==========================================
 # SMOKE TESTS - PIPELINE STAGES
 # ==========================================
+
 
 @pytest.mark.smoke
 def test_01_configuration(setup_environment):
@@ -94,17 +98,17 @@ def test_01_configuration(setup_environment):
     config = load_config(str(config_path))
     assert "data" in config
 
+
 @pytest.mark.smoke
 def test_02_preprocessing(setup_environment):
     """Verify data preprocessing."""
     try:
         train_df, val_df, test_df = load_and_preprocess_data(
-            str(setup_environment["raw_path"]), 
-            str(setup_environment["processed_dir"])
+            str(setup_environment["raw_path"]), str(setup_environment["processed_dir"])
         )
     except Exception as e:
         pytest.fail(f"Preprocessing failed: {e}")
-        
+
     assert not train_df.empty, "Training dataframe is empty"
     assert not val_df.empty, "Validation dataframe is empty"
     assert not test_df.empty, "Test dataframe is empty"
@@ -113,24 +117,27 @@ def test_02_preprocessing(setup_environment):
     assert "target" in test_df.columns, "Target column missing in test"
     # Data Leakage Check - duration should be removed
     assert "duration" not in train_df.columns, "Duration column found (data leakage risk)"
-    
+
     # Verify preprocessor was saved
     preprocessor_path = PROJECT_ROOT / "src" / "preprocessing" / "preprocessor.pkl"
     # Note: In test environment, preprocessor might be saved to temp dir
     # This check is informational
 
+
 # ==========================================
 # TRAINING TESTS (ALL MODELS)
 # ==========================================
+
 
 @pytest.fixture
 def training_data(setup_environment):
     """Helper fixture to load processed data for training tests."""
     processed_dir = setup_environment["processed_dir"]
     train_df = pd.read_csv(processed_dir / "train.csv")
-    X_train = train_df.drop(columns=['target'])
-    y_train = train_df['target']
+    X_train = train_df.drop(columns=["target"])
+    y_train = train_df["target"]
     return X_train, y_train, setup_environment["models_dir"]
+
 
 @pytest.mark.smoke
 def test_03_train_baseline_logreg(training_data):
@@ -141,6 +148,7 @@ def test_03_train_baseline_logreg(training_data):
         joblib.dump(model, models_dir / "baseline.pkl")
     except Exception as e:
         pytest.fail(f"Baseline training failed: {e}")
+
 
 @pytest.mark.smoke
 def test_04_train_random_forest_smote(training_data):
@@ -159,6 +167,7 @@ def test_04_train_random_forest_smote(training_data):
     except Exception as e:
         pytest.fail(f"Random Forest training failed: {e}")
 
+
 @pytest.mark.smoke
 def test_05_train_xgboost_smote(training_data):
     """Test Phase 2: XGBoost + SMOTE Pipeline."""
@@ -176,6 +185,7 @@ def test_05_train_xgboost_smote(training_data):
     except Exception as e:
         pytest.fail(f"XGBoost (SMOTE) training failed: {e}")
 
+
 @pytest.mark.smoke
 def test_06_train_champion_weighted_xgboost(training_data):
     """Test Phase 3: Weighted XGBoost (Production Model)."""
@@ -186,6 +196,7 @@ def test_06_train_champion_weighted_xgboost(training_data):
     except Exception as e:
         pytest.fail(f"Weighted XGBoost training failed: {e}")
 
+
 @pytest.mark.smoke
 def test_07_inference_capability(training_data):
     """
@@ -193,20 +204,20 @@ def test_07_inference_capability(training_data):
     """
     X_train, _, models_dir = training_data
     champion_path = models_dir / "champion.pkl"
-    
+
     if not champion_path.exists():
         pytest.skip("Champion model was not trained successfully")
-        
+
     model = joblib.load(champion_path)
-    
+
     # Create a dummy input based on training data shape
     sample_input = X_train.iloc[[0]]
-    
+
     try:
         pred = model.predict(sample_input)
         assert len(pred) == 1
         # Also test predict_proba if available
-        if hasattr(model, 'predict_proba'):
+        if hasattr(model, "predict_proba"):
             proba = model.predict_proba(sample_input)
             assert proba.shape == (1, 2)  # Binary classification
     except Exception as e:

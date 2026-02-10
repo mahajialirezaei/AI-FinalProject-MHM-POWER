@@ -19,6 +19,7 @@ CONFIG_PATH = PROJECT_ROOT / "config" / "config.yaml"
 # Ensure results directory exists
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
+
 def load_config():
     """Load project configuration to get the best threshold."""
     if not CONFIG_PATH.exists():
@@ -26,6 +27,7 @@ def load_config():
         return {}
     with open(CONFIG_PATH, "r") as f:
         return yaml.safe_load(f)
+
 
 def evaluate_model(model_path, X, y, model_name="Model", threshold=None):
     """
@@ -37,7 +39,7 @@ def evaluate_model(model_path, X, y, model_name="Model", threshold=None):
 
     try:
         model = joblib.load(model_path)
-        
+
         # Get probabilities (needed for AUC and Custom Threshold)
         if hasattr(model, "predict_proba"):
             y_prob = model.predict_proba(X)[:, 1]
@@ -60,7 +62,7 @@ def evaluate_model(model_path, X, y, model_name="Model", threshold=None):
             "Precision": precision_score(y, y_pred, zero_division=0),
             "Recall": recall_score(y, y_pred),
             "F1-Score": f1_score(y, y_pred),
-            "ROC-AUC": roc_auc_score(y, y_prob)
+            "ROC-AUC": roc_auc_score(y, y_prob),
         }
     except Exception as e:
         print(f"[ERROR] Failed to evaluate {model_name}: {e}")
@@ -71,8 +73,8 @@ def run_comparison():
     # 1. Load Validation Data
     try:
         val_df = pd.read_csv(DATA_PROCESSED_DIR / "val.csv")
-        X_val = val_df.drop(columns=['target'])
-        y_val = val_df['target']
+        X_val = val_df.drop(columns=["target"])
+        y_val = val_df["target"]
     except FileNotFoundError:
         print("Error: Validation data not found.")
         return
@@ -87,36 +89,50 @@ def run_comparison():
 
     # --- A. Baseline & Phase 2 Models (Standard 0.5 Threshold) ---
     baseline_metrics = evaluate_model(MODELS_DIR / "baseline_logreg.pkl", X_val, y_val, "Baseline")
-    if baseline_metrics: all_metrics["Baseline"] = baseline_metrics
+    if baseline_metrics:
+        all_metrics["Baseline"] = baseline_metrics
 
-    rf_metrics = evaluate_model(MODELS_DIR / "random_forest_model_smote.pkl", X_val, y_val, "Random Forest")
-    if rf_metrics: all_metrics["Random Forest"] = rf_metrics
+    rf_metrics = evaluate_model(
+        MODELS_DIR / "random_forest_model_smote.pkl", X_val, y_val, "Random Forest"
+    )
+    if rf_metrics:
+        all_metrics["Random Forest"] = rf_metrics
 
-    xgb_metrics = evaluate_model(MODELS_DIR / "xgboost_model_smote.pkl", X_val, y_val, "XGBoost (Manual)")
-    if xgb_metrics: all_metrics["XGBoost (Manual)"] = xgb_metrics
+    xgb_metrics = evaluate_model(
+        MODELS_DIR / "xgboost_model_smote.pkl", X_val, y_val, "XGBoost (Manual)"
+    )
+    if xgb_metrics:
+        all_metrics["XGBoost (Manual)"] = xgb_metrics
 
-    opt_metrics = evaluate_model(MODELS_DIR / "xgboost_optimized.pkl", X_val, y_val, "XGBoost (Optimized)")
-    if opt_metrics: all_metrics["XGBoost (Optimized)"] = opt_metrics
-    
-    weighted_metrics = evaluate_model(MODELS_DIR / "xgboost_weighted.pkl", X_val, y_val, "XGBoost (Weighted)")
-    if weighted_metrics: all_metrics["XGBoost (Weighted)"] = weighted_metrics
-    
-    opt_weighted_metrics = evaluate_model(MODELS_DIR / "xgboost_weighted_optimized.pkl", X_val, y_val, "XGBoost (Weighted optimized)")
-    if opt_weighted_metrics: all_metrics["XGBoost (Weighted optimized)"] = opt_weighted_metrics
+    opt_metrics = evaluate_model(
+        MODELS_DIR / "xgboost_optimized.pkl", X_val, y_val, "XGBoost (Optimized)"
+    )
+    if opt_metrics:
+        all_metrics["XGBoost (Optimized)"] = opt_metrics
 
+    weighted_metrics = evaluate_model(
+        MODELS_DIR / "xgboost_weighted.pkl", X_val, y_val, "XGBoost (Weighted)"
+    )
+    if weighted_metrics:
+        all_metrics["XGBoost (Weighted)"] = weighted_metrics
+
+    opt_weighted_metrics = evaluate_model(
+        MODELS_DIR / "xgboost_weighted_optimized.pkl", X_val, y_val, "XGBoost (Weighted optimized)"
+    )
+    if opt_weighted_metrics:
+        all_metrics["XGBoost (Weighted optimized)"] = opt_weighted_metrics
 
     # --- B. Production Model (Custom Threshold) ---
     # We evaluate the Weighted Optimized model AGAIN, but with the specific threshold
     prod_metrics = evaluate_model(
-        MODELS_DIR / "xgboost_weighted_optimized.pkl", 
-        X_val, 
-        y_val, 
-        f"Production (Thresh={best_threshold})", 
-        threshold=best_threshold
+        MODELS_DIR / "xgboost_weighted_optimized.pkl",
+        X_val,
+        y_val,
+        f"Production (Thresh={best_threshold})",
+        threshold=best_threshold,
     )
     if prod_metrics:
         all_metrics["Production (Best)"] = prod_metrics
-
 
     # 4. Generate DataFrame and Plot
     if not all_metrics:
@@ -136,21 +152,25 @@ def run_comparison():
 
     # Plot
     df_melted = comparison_df.melt(id_vars="Metric", var_name="Model", value_name="Score")
-    
+
     plt.figure(figsize=(14, 7))
-    
+
     # 1. Capture the axes object 'ax'
     ax = sns.barplot(data=df_melted, x="Metric", y="Score", hue="Model", palette="viridis")
-    
-    plt.title(f"Impact of Optimization & Threshold Tuning (Best Thresh={best_threshold})", fontsize=14, fontweight='bold')
-    plt.ylim(0, 1.15) # Increased slightly to make room for text
-    plt.legend(bbox_to_anchor=(1.01, 1), loc='upper left', borderaxespad=0)
-    plt.grid(axis='y', alpha=0.3)
-    
+
+    plt.title(
+        f"Impact of Optimization & Threshold Tuning (Best Thresh={best_threshold})",
+        fontsize=14,
+        fontweight="bold",
+    )
+    plt.ylim(0, 1.15)  # Increased slightly to make room for text
+    plt.legend(bbox_to_anchor=(1.01, 1), loc="upper left", borderaxespad=0)
+    plt.grid(axis="y", alpha=0.3)
+
     # 2. Add values on top of bars
     for container in ax.containers:
-        ax.bar_label(container, fmt='%.2f', padding=3, fontsize=8)
-    
+        ax.bar_label(container, fmt="%.2f", padding=3, fontsize=8)
+
     plt.tight_layout()
 
     save_path = RESULTS_DIR / "comparison_production_final.png"
