@@ -10,6 +10,10 @@ from sklearn.metrics import (
     roc_auc_score, confusion_matrix, classification_report, roc_curve
 )
 from pathlib import Path
+from src.training.wandb_utils import (
+    init_wandb, log_metrics, log_config, log_artifact,
+    log_image, log_confusion_matrix, finish_wandb
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 DATA_PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
@@ -52,6 +56,18 @@ def train_baseline_model(X_train, y_train):
     """
     print("\nStarting Baseline Model Training (Logistic Regression)...")
 
+    model_params = {
+        "class_weight": "balanced",
+        "random_state": 42,
+        "max_iter": 1000,
+        "solver": "lbfgs",
+    }
+    
+    # Log hyperparameters to WandB
+    log_config({
+        "model_type": "LogisticRegression",
+        **model_params
+    })
 
     model = LogisticRegression(
         class_weight='balanced',
@@ -91,6 +107,18 @@ def evaluate_model(model, X_val, y_val, phase_name="Baseline"):
 
     print("\nClassification Report:")
     print(classification_report(y_val, y_pred))
+    
+    # Log metrics to WandB
+    log_metrics({
+        "val_accuracy": metrics["Accuracy"],
+        "val_precision": metrics["Precision"],
+        "val_recall": metrics["Recall"],
+        "val_f1_score": metrics["F1 Score"],
+        "val_roc_auc": metrics["ROC AUC"]
+    })
+    
+    # Log confusion matrix to WandB
+    log_confusion_matrix(y_val, y_pred)
 
     return metrics, y_pred, y_prob
 
@@ -106,8 +134,12 @@ def plot_results(y_val, y_pred, y_prob, save_dir):
     plt.title('Confusion Matrix - Baseline Model')
     plt.xlabel('Predicted')
     plt.ylabel('Actual')
-    plt.savefig(save_dir / "confusion_matrix_baseline.png")
+    cm_path = save_dir / "confusion_matrix_baseline.png"
+    plt.savefig(cm_path)
     plt.close()
+    
+    # Log confusion matrix image to WandB
+    log_image(str(cm_path), "confusion_matrix")
 
     # 2. ROC Curve
     fpr, tpr, _ = roc_curve(y_val, y_prob)
@@ -118,8 +150,12 @@ def plot_results(y_val, y_pred, y_prob, save_dir):
     plt.ylabel('True Positive Rate')
     plt.title('ROC Curve - Baseline Model')
     plt.legend()
-    plt.savefig(save_dir / "roc_curve_baseline.png")
+    roc_path = save_dir / "roc_curve_baseline.png"
+    plt.savefig(roc_path)
     plt.close()
+    
+    # Log ROC curve image to WandB
+    log_image(str(roc_path), "roc_curve")
 
     print(f"Plots saved to {save_dir}")
 
@@ -131,9 +167,18 @@ def save_checkpoint(model, save_dir, filename="baseline_logreg.pkl"):
     filepath = save_dir / filename
     joblib.dump(model, filepath)
     print(f"Model checkpoint saved to {filepath}")
+    
+    # Log model artifact to WandB
+    log_artifact(str(filepath), "baseline_logreg", "model")
 
 
 if __name__ == "__main__":
+    # Initialize WandB
+    init_wandb(
+        run_name="baseline-logistic-regression",
+        tags=["baseline", "logistic-regression", "phase-1"]
+    )
+    
     try:
         # 1. Load Data
         X_train, y_train, X_val, y_val = load_processed_data(DATA_PROCESSED_DIR)
@@ -154,3 +199,7 @@ if __name__ == "__main__":
 
     except Exception as e:
         print(f"An error occurred: {e}")
+        raise
+    finally:
+        # Finish WandB run
+        finish_wandb()

@@ -42,22 +42,42 @@ env/
 
 # Model files
 /src/models/*.pkl
+/src/models/*.joblib
 /models/*.pt
 /models/*.pth
 /models/*.h5
 /models/*.ckpt
 /models/*.joblib
 
+# Preprocessor files (generated)
+/src/preprocessing/*.pkl
+/src/preprocessing/*.joblib
+
 # Reports and figures (generated files)
 /reports/figures/*.png
 /reports/figures/*.jpg
 /reports/figures/*.pdf
 /reports/*.html
-/results/charts
-/results/*
+/results/charts/
+/results/optimization/
+/results/tuning/
+/results/*.png
+/results/*.jpg
+/results/*.pdf
+/results/*.html
 
-# Services
-/wandb
+# WandB (experiment tracking)
+wandb/
+**/wandb/
+.wandb/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+
+# Streamlit cache
+.streamlit/
+.streamlit_cache/
 
 # Logs
 *.log
@@ -87,3 +107,27 @@ htmlcov/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+# ML/AI specific
+*.hdf5
+*.h5
+*.ckpt
+*.pth
+*.pt
+*.onnx
+*.pb
+*.tflite
+*.mlmodel
+
+# Data science
+*.feather
+*.parquet
+*.arrow
+
+# Environment variables
+.env.local
+.env.*.local
+*.env
+
+# IDE - Cursor
+.cursor/

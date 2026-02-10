@@ -25,7 +25,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install pytest black flake8 mypy scikit-learn joblib
+        pip install pytest black flake8 mypy scikit-learn joblib xgboost imbalanced-learn
 
     - name: Check code formatting with black
       run: |
@@ -58,7 +58,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install pytest scikit-learn joblib
+        pip install pytest scikit-learn joblib xgboost imbalanced-learn
 
     - name: Download dataset
       run: |
@@ -89,7 +89,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install scikit-learn joblib
+        pip install scikit-learn joblib xgboost imbalanced-learn
 
     - name: Download dataset
       run: |
@@ -102,8 +102,18 @@ jobs:
         python run_eda.py
 
     - name: Run preprocessing script
+      env:
+        WANDB_MODE: offline
       run: |
         python -m src.preprocessing.main
+        
+    - name: Verify preprocessor was saved
+      run: |
+        if [ ! -f "src/preprocessing/preprocessor.pkl" ]; then
+          echo "Error: preprocessor.pkl was not saved correctly"
+          exit 1
+        fi
+        echo "Preprocessor saved successfully"
 
     - name: Upload generated artifacts
       if: always()

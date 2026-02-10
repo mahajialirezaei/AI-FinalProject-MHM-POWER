@@ -7,9 +7,13 @@ import matplotlib.pyplot as plt
 import seaborn as sns  # Added for plotting
 from pathlib import Path
 from sklearn.model_selection import cross_val_score, StratifiedKFold
-from sklearn.metrics import classification_report, roc_auc_score, f1_score
+from sklearn.metrics import classification_report, roc_auc_score, f1_score, confusion_matrix
 from imblearn.over_sampling import SMOTE
 from imblearn.pipeline import Pipeline as ImbPipeline
+from src.training.wandb_utils import (
+    init_wandb, log_metrics, log_config, log_artifact,
+    log_image, log_confusion_matrix, finish_wandb
+)
 
 # ==========================================
 # CONFIGURATION
@@ -84,9 +88,31 @@ def run_optimization(n_trials=50):
     print(f"\n[INFO] Starting Optuna Optimization with {n_trials} trials...")
     print("       Target Metric: F1-Score (Maximize)")
     
+    # Log optimization config to WandB
+    log_config({
+        "optimization": "optuna",
+        "n_trials": n_trials,
+        "method": "smote",
+        "cv_folds": 3,
+        "direction": "maximize",
+        "metric": "f1"
+    })
+    
     # Create Study
     study = optuna.create_study(direction='maximize')
-    study.optimize(lambda trial: objective(trial, X_train, y_train), n_trials=n_trials)
+    
+    # Callback to log each trial to WandB
+    def callback(study, trial):
+        log_metrics({
+            "trial_f1": trial.value,
+            "trial_number": trial.number
+        })
+    
+    study.optimize(
+        lambda trial: objective(trial, X_train, y_train),
+        n_trials=n_trials,
+        callbacks=[callback]
+    )
 
     print("\n" + "="*60)
     print("OPTIMIZATION RESULTS")
@@ -95,6 +121,10 @@ def run_optimization(n_trials=50):
     print("Best Parameters:")
     for key, value in study.best_params.items():
         print(f"  {key}: {value}")
+    
+    # Log best results to WandB
+    log_metrics({"best_f1_score": study.best_value})
+    log_config({"best_params": study.best_params})
     
     return study, X_train, y_train, X_val, y_val
 
@@ -124,13 +154,33 @@ def train_best_model(study, X_train, y_train, X_val, y_val):
     y_prob = final_pipeline.predict_proba(X_val)[:, 1]
     
     print("\nFinal Validation Report (Optimized Model):")
+    report = classification_report(y_val, y_pred, output_dict=True)
     print(classification_report(y_val, y_pred))
-    print(f"ROC-AUC: {roc_auc_score(y_val, y_prob):.4f}")
+    auc = roc_auc_score(y_val, y_prob)
+    f1 = f1_score(y_val, y_pred)
+    print(f"ROC-AUC: {auc:.4f}")
+    print(f"F1 Score: {f1:.4f}")
+    
+    # Log metrics to WandB
+    log_metrics({
+        "final_val_accuracy": report['accuracy'],
+        "final_val_precision": report['weighted avg']['precision'],
+        "final_val_recall": report['weighted avg']['recall'],
+        "final_val_f1": report['weighted avg']['f1-score'],
+        "final_val_roc_auc": auc,
+        "final_val_f1_binary": f1
+    })
+    
+    # Log confusion matrix to WandB
+    log_confusion_matrix(y_val, y_pred)
     
     # Save Model
     save_path = MODELS_DIR / "xgboost_optimized.pkl"
     joblib.dump(final_pipeline, save_path)
     print(f"\n[SUCCESS] Optimized model saved to {save_path}")
+    
+    # Log model artifact to WandB
+    log_artifact(str(save_path), "xgboost_optimized", "model")
     
     return final_pipeline
 
@@ -163,6 +213,9 @@ def plot_feature_importance(pipeline, feature_names):
     plt.savefig(save_path, dpi=300)
     plt.close()
     print(f"       Saved to: {save_path}")
+    
+    # Log feature importance plot to WandB
+    log_image(str(save_path), "feature_importance")
 
 def plot_optimization_history(study):
     """Generate Optuna visualization plots."""
@@ -172,29 +225,51 @@ def plot_optimization_history(study):
         # Plot optimization history
         fig1 = optuna.visualization.matplotlib.plot_optimization_history(study)
         plt.tight_layout()
-        plt.savefig(RESULTS_DIR / "optuna_history_smote.png")
+        hist_path = RESULTS_DIR / "optuna_history_smote.png"
+        plt.savefig(hist_path)
         plt.close()
+        
+        # Log optimization history to WandB
+        log_image(str(hist_path), "optimization_history")
         
         # Plot parameter importance
         fig2 = optuna.visualization.matplotlib.plot_param_importances(study)
         plt.tight_layout()
-        plt.savefig(RESULTS_DIR / "optuna_param_importance_smote.png")
+        imp_path = RESULTS_DIR / "optuna_param_importance_smote.png"
+        plt.savefig(imp_path)
         plt.close()
+        
+        # Log parameter importance to WandB
+        log_image(str(imp_path), "parameter_importance")
         
         print(f"       Plots saved to {RESULTS_DIR}")
     except Exception as e:
         print(f"[WARN] Could not generate plots: {e}")
 
 if __name__ == "__main__":
-    # 1. Run Optimization
-    # NOTE: Set n_trials higher (e.g., 50) for real results
-    study, X_train, y_train, X_val, y_val = run_optimization(n_trials=30)
+    # Initialize WandB
+    init_wandb(
+        run_name="xgboost-optimized-smote",
+        tags=["xgboost", "optimized", "smote", "optuna", "phase-2"]
+    )
     
-    # 2. Train Final Model
-    final_pipeline = train_best_model(study, X_train, y_train, X_val, y_val)
-    
-    # 3. Plot Feature Importance (NEW STEP)
-    plot_feature_importance(final_pipeline, X_train.columns)
-    
-    # 4. Visualize Optimization History
-    plot_optimization_history(study)
+    try:
+        # 1. Run Optimization
+        # NOTE: Set n_trials higher (e.g., 50) for real results
+        study, X_train, y_train, X_val, y_val = run_optimization(n_trials=30)
+        
+        # 2. Train Final Model
+        final_pipeline = train_best_model(study, X_train, y_train, X_val, y_val)
+        
+        # 3. Plot Feature Importance (NEW STEP)
+        plot_feature_importance(final_pipeline, X_train.columns)
+        
+        # 4. Visualize Optimization History
+        plot_optimization_history(study)
+        
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        raise
+    finally:
+        # Finish WandB run
+        finish_wandb()

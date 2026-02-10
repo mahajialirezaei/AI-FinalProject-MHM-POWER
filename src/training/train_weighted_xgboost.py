@@ -6,7 +6,11 @@ import joblib
 import xgboost as xgb
 from pathlib import Path
 from sklearn.model_selection import cross_val_score, StratifiedKFold
-from sklearn.metrics import classification_report, roc_auc_score, f1_score
+from sklearn.metrics import classification_report, roc_auc_score, f1_score, confusion_matrix
+from src.training.wandb_utils import (
+    init_wandb, log_metrics, log_config, log_artifact,
+    log_confusion_matrix, finish_wandb
+)
 
 # ==========================================
 # CONFIGURATION
@@ -50,6 +54,27 @@ def train_weighted_model(X_train, y_train):
 
     # 2. Define Model with Weight
     # We use the same 'sensible defaults' as before, but added the weight
+    model_params = {
+        "n_estimators": 200,
+        "learning_rate": 0.1,
+        "max_depth": 5,
+        "subsample": 0.8,
+        "colsample_bytree": 0.8,
+        "scale_pos_weight": weight,
+        "objective": "binary:logistic",
+        "eval_metric": "logloss",
+        "random_state": 42
+    }
+    
+    # Log hyperparameters to WandB
+    log_config({
+        "model_type": "XGBoost",
+        "method": "weighted",
+        "num_neg": int(num_neg),
+        "num_pos": int(num_pos),
+        **model_params
+    })
+    
     xgb_model = xgb.XGBClassifier(
         n_estimators=200,
         learning_rate=0.1,
@@ -70,6 +95,14 @@ def train_weighted_model(X_train, y_train):
     
     print(f"       CV F1-Scores: {cv_scores}")
     print(f"       Mean CV F1:   {np.mean(cv_scores):.4f}")
+    
+    # Log CV scores to WandB
+    for i, score in enumerate(cv_scores):
+        log_metrics({f"cv_fold_{i+1}_f1": score})
+    log_metrics({
+        "mean_cv_f1": np.mean(cv_scores),
+        "std_cv_f1": np.std(cv_scores)
+    })
 
     # 4. Final Training
     print("[INFO] Training final weighted model...")
@@ -86,23 +119,56 @@ def evaluate_model(model, X_val, y_val):
     print("\n" + "="*60)
     print("CLASSIFICATION REPORT (WEIGHTED MODEL)")
     print("="*60)
+    report = classification_report(y_val, y_pred, output_dict=True)
     print(classification_report(y_val, y_pred))
     
     auc = roc_auc_score(y_val, y_prob)
+    f1 = f1_score(y_val, y_pred)
     print(f"ROC-AUC Score: {auc:.4f}")
+    print(f"F1 Score:      {f1:.4f}")
+    
+    # Log metrics to WandB
+    log_metrics({
+        "val_accuracy": report['accuracy'],
+        "val_precision": report['weighted avg']['precision'],
+        "val_recall": report['weighted avg']['recall'],
+        "val_f1": report['weighted avg']['f1-score'],
+        "val_roc_auc": auc,
+        "val_f1_binary": f1
+    })
+    
+    # Log confusion matrix to WandB
+    log_confusion_matrix(y_val, y_pred)
     
     return y_pred
 
 if __name__ == "__main__":
-    X_train, y_train, X_val, y_val = load_data()
+    # Initialize WandB
+    init_wandb(
+        run_name="xgboost-weighted",
+        tags=["xgboost", "weighted", "no-smote", "phase-2"]
+    )
     
-    # Train
-    model = train_weighted_model(X_train, y_train)
-    
-    # Evaluate
-    evaluate_model(model, X_val, y_val)
-    
-    # Save
-    save_path = MODELS_DIR / "xgboost_weighted.pkl"
-    joblib.dump(model, save_path)
-    print(f"\n[SUCCESS] Weighted model saved to {save_path}")
+    try:
+        X_train, y_train, X_val, y_val = load_data()
+        
+        # Train
+        model = train_weighted_model(X_train, y_train)
+        
+        # Evaluate
+        evaluate_model(model, X_val, y_val)
+        
+        # Save
+        save_path = MODELS_DIR / "xgboost_weighted.pkl"
+        joblib.dump(model, save_path)
+        print(f"\n[SUCCESS] Weighted model saved to {save_path}")
+        
+        # Log model artifact to WandB
+        log_artifact(str(save_path), "xgboost_weighted", "model")
+        
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        raise
+    finally:
+        # Finish WandB run
+        finish_wandb()

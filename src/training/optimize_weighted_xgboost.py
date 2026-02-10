@@ -9,7 +9,11 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from pathlib import Path
 from sklearn.model_selection import cross_val_score, StratifiedKFold
-from sklearn.metrics import classification_report, roc_auc_score, f1_score
+from sklearn.metrics import classification_report, roc_auc_score, f1_score, confusion_matrix
+from src.training.wandb_utils import (
+    init_wandb, log_metrics, log_config, log_artifact,
+    log_image, log_confusion_matrix, finish_wandb
+)
 
 # ==========================================
 # CONFIGURATION
@@ -97,9 +101,32 @@ def run_optimization(n_trials=50):
 
     print(f"\n[INFO] Starting Optuna Optimization (Weighted) with {n_trials} trials...")
     
+    # Log optimization config to WandB
+    log_config({
+        "optimization": "optuna",
+        "n_trials": n_trials,
+        "method": "weighted",
+        "scale_pos_weight": weight,
+        "cv_folds": 3,
+        "direction": "maximize",
+        "metric": "f1"
+    })
+    
     # Create Study
     study = optuna.create_study(direction='maximize')
-    study.optimize(lambda trial: objective(trial, X_train, y_train, weight), n_trials=n_trials)
+    
+    # Callback to log each trial to WandB
+    def callback(study, trial):
+        log_metrics({
+            "trial_f1": trial.value,
+            "trial_number": trial.number
+        })
+    
+    study.optimize(
+        lambda trial: objective(trial, X_train, y_train, weight),
+        n_trials=n_trials,
+        callbacks=[callback]
+    )
 
     print("\n" + "="*60)
     print("OPTIMIZATION RESULTS")
@@ -108,6 +135,10 @@ def run_optimization(n_trials=50):
     print("Best Parameters:")
     for key, value in study.best_params.items():
         print(f"  {key}: {value}")
+    
+    # Log best results to WandB
+    log_metrics({"best_f1_score": study.best_value})
+    log_config({"best_params": study.best_params})
     
     return study, X_train, y_train, X_val, y_val, weight
 
@@ -133,13 +164,33 @@ def train_best_model(study, X_train, y_train, X_val, y_val, weight):
     y_prob = final_model.predict_proba(X_val)[:, 1]
     
     print("\nFinal Validation Report (Weighted Optimized Model):")
+    report = classification_report(y_val, y_pred, output_dict=True)
     print(classification_report(y_val, y_pred))
-    print(f"ROC-AUC: {roc_auc_score(y_val, y_prob):.4f}")
+    auc = roc_auc_score(y_val, y_prob)
+    f1 = f1_score(y_val, y_pred)
+    print(f"ROC-AUC: {auc:.4f}")
+    print(f"F1 Score: {f1:.4f}")
+    
+    # Log metrics to WandB
+    log_metrics({
+        "final_val_accuracy": report['accuracy'],
+        "final_val_precision": report['weighted avg']['precision'],
+        "final_val_recall": report['weighted avg']['recall'],
+        "final_val_f1": report['weighted avg']['f1-score'],
+        "final_val_roc_auc": auc,
+        "final_val_f1_binary": f1
+    })
+    
+    # Log confusion matrix to WandB
+    log_confusion_matrix(y_val, y_pred)
     
     # Save Model
     save_path = MODELS_DIR / "xgboost_weighted_optimized.pkl"
     joblib.dump(final_model, save_path)
     print(f"\n[SUCCESS] Optimized model saved to {save_path}")
+    
+    # Log model artifact to WandB
+    log_artifact(str(save_path), "xgboost_weighted_optimized", "model")
     
     return final_model
 
@@ -165,6 +216,9 @@ def plot_feature_importance(model, feature_names):
     plt.savefig(save_path, dpi=300)
     plt.close()
     print(f"       Saved to: {save_path}")
+    
+    # Log feature importance plot to WandB
+    log_image(str(save_path), "feature_importance")
 
 def plot_optuna_charts(study):
     """
@@ -184,6 +238,9 @@ def plot_optuna_charts(study):
         plt.savefig(hist_path, dpi=300)
         plt.close()
         print(f"       [SUCCESS] History saved to {hist_path}")
+        
+        # Log optimization history to WandB
+        log_image(str(hist_path), "optimization_history")
     except Exception as e:
         print(f"       [WARN] Optimization History plot failed: {e}")
 
@@ -200,6 +257,9 @@ def plot_optuna_charts(study):
             plt.savefig(imp_path, dpi=300)
             plt.close()
             print(f"       [SUCCESS] Importance saved to {imp_path}")
+            
+            # Log parameter importance to WandB
+            log_image(str(imp_path), "parameter_importance")
         else:
             print("       [WARN] Skipping importance plot (need >1 trial)")
     except Exception as e:
@@ -207,15 +267,29 @@ def plot_optuna_charts(study):
 
 
 if __name__ == "__main__":
-    # 1. Run Optimization
-    # NOTE: n_trials must be > 1 for parameter importance to work
-    study, X_train, y_train, X_val, y_val, weight = run_optimization(n_trials=60)
+    # Initialize WandB
+    init_wandb(
+        run_name="xgboost-weighted-optimized-champion",
+        tags=["xgboost", "weighted", "optimized", "optuna", "champion", "phase-2"]
+    )
     
-    # 2. Train Final Model
-    final_model = train_best_model(study, X_train, y_train, X_val, y_val, weight)
-    
-    # 3. Plot Feature Importance
-    plot_feature_importance(final_model, X_train.columns)
+    try:
+        # 1. Run Optimization
+        # NOTE: n_trials must be > 1 for parameter importance to work
+        study, X_train, y_train, X_val, y_val, weight = run_optimization(n_trials=60)
+        
+        # 2. Train Final Model
+        final_model = train_best_model(study, X_train, y_train, X_val, y_val, weight)
+        
+        # 3. Plot Feature Importance
+        plot_feature_importance(final_model, X_train.columns)
 
-    # 4. Plot Optuna History (Re-added as requested)
-    plot_optuna_charts(study)
+        # 4. Plot Optuna History (Re-added as requested)
+        plot_optuna_charts(study)
+        
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        raise
+    finally:
+        # Finish WandB run
+        finish_wandb()

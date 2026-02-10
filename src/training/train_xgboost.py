@@ -3,7 +3,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import joblib
-import wandb
 import xgboost as xgb
 from pathlib import Path
 from sklearn.model_selection import cross_val_score, StratifiedKFold
@@ -13,6 +12,10 @@ from sklearn.metrics import (
 )
 from imblearn.over_sampling import SMOTE
 from imblearn.pipeline import Pipeline as ImbPipeline
+from src.training.wandb_utils import (
+    init_wandb, log_metrics, log_config, log_artifact,
+    log_image, log_confusion_matrix, finish_wandb
+)
 
 # ==========================================
 # CONFIGURATION & CONSTANTS
@@ -72,7 +75,7 @@ def train_xgboost_pipeline(X_train, y_train):
     }
 
     # Log hyperparameters to WandB
-    wandb.config.update({
+    log_config({
         "model_type": "XGBoost",
         "n_estimators": xgb_params['n_estimators'],
         "learning_rate": xgb_params['learning_rate'],
@@ -100,8 +103,8 @@ def train_xgboost_pipeline(X_train, y_train):
 
     # Log CV scores to WandB
     for i, score in enumerate(cv_scores):
-        wandb.log({f"cv_fold_{i+1}_f1": score})
-    wandb.log({
+        log_metrics({f"cv_fold_{i+1}_f1": score})
+    log_metrics({
         "mean_cv_f1": np.mean(cv_scores),
         "std_cv_f1": np.std(cv_scores)
     })
@@ -136,7 +139,7 @@ def evaluate_model(pipeline, X_val, y_val):
     print("="*60)
 
     # Log metrics to WandB
-    wandb.log({
+    log_metrics({
         "val_accuracy": report['accuracy'],
         "val_precision": report['weighted avg']['precision'],
         "val_recall": report['weighted avg']['recall'],
@@ -146,15 +149,7 @@ def evaluate_model(pipeline, X_val, y_val):
     })
 
     # Log confusion matrix to WandB
-    cm = confusion_matrix(y_val, y_pred)
-    wandb.log({
-        "confusion_matrix": wandb.plot.confusion_matrix(
-            probs=None,
-            y_true=y_val,
-            preds=y_pred,
-            class_names=["Class 0", "Class 1"]
-        )
-    })
+    log_confusion_matrix(y_val, y_pred)
 
     return y_pred, y_prob
 
@@ -187,7 +182,7 @@ def plot_feature_importance(pipeline, feature_names, save_dir):
     plt.savefig(save_path, dpi=300)
 
     # Log feature importance plot to WandB
-    wandb.log({"feature_importance": wandb.Image(str(save_path))})
+    log_image(str(save_path), "feature_importance")
 
     plt.close()
     print(f"      Saved to: {save_path}")
@@ -201,34 +196,36 @@ def save_artifacts(pipeline, save_dir):
     print(f"\n[INFO] Model saved to {save_path}")
 
     # Log model as artifact to WandB
-    artifact = wandb.Artifact('xgboost_model', type='model')
-    artifact.add_file(str(save_path))
-    wandb.log_artifact(artifact)
+    log_artifact(str(save_path), "xgboost_model", "model")
 
 if __name__ == "__main__":
     # Initialize WandB
-    wandb.init(
-        project="ai-finalproject-mhm-power",
-        name="xgboost-smote",
-        tags=["xgboost", "smote", "baseline"]
+    init_wandb(
+        run_name="xgboost-smote",
+        tags=["xgboost", "smote", "baseline", "phase-2"]
     )
+    
+    try:
+        # 1. Load Data
+        X_train, y_train, X_val, y_val = load_data()
 
-    # 1. Load Data
-    X_train, y_train, X_val, y_val = load_data()
+        # 2. Train (Pipeline with SMOTE + XGBoost)
+        pipeline = train_xgboost_pipeline(X_train, y_train)
 
-    # 2. Train (Pipeline with SMOTE + XGBoost)
-    pipeline = train_xgboost_pipeline(X_train, y_train)
+        # 3. Evaluate
+        evaluate_model(pipeline, X_val, y_val)
 
-    # 3. Evaluate
-    evaluate_model(pipeline, X_val, y_val)
+        # 4. Feature Importance
+        plot_feature_importance(pipeline, X_train.columns, RESULTS_DIR)
 
-    # 4. Feature Importance
-    plot_feature_importance(pipeline, X_train.columns, RESULTS_DIR)
+        # 5. Save Model
+        save_artifacts(pipeline, MODELS_DIR)
 
-    # 5. Save Model
-    save_artifacts(pipeline, MODELS_DIR)
-
-    print("\n[SUCCESS] XGBoost training pipeline completed.")
-
-    # Finish WandB run
-    wandb.finish()
+        print("\n[SUCCESS] XGBoost training pipeline completed.")
+        
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        raise
+    finally:
+        # Finish WandB run
+        finish_wandb()

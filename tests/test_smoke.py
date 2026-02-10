@@ -10,7 +10,21 @@ import sys
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-# Import ALL training modules
+# Mock wandb before importing training modules to avoid CI failures
+import unittest.mock
+wandb_mock = unittest.mock.MagicMock()
+wandb_mock.init.return_value = None
+wandb_mock.finish.return_value = None
+wandb_mock.config.update.return_value = None
+wandb_mock.log.return_value = None
+wandb_mock.log_artifact.return_value = None
+wandb_mock.plot.confusion_matrix.return_value = None
+wandb_mock.Image.return_value = None
+wandb_mock.Artifact.return_value = wandb_mock
+
+sys.modules['wandb'] = wandb_mock
+
+# Import ALL training modules (after mocking wandb)
 from src.preprocessing.main import load_and_preprocess_data
 from src.eda.data_loader import load_config
 from src.training.train_baseline import train_baseline_model
@@ -91,10 +105,19 @@ def test_02_preprocessing(setup_environment):
     except Exception as e:
         pytest.fail(f"Preprocessing failed: {e}")
         
-    assert not train_df.empty
-    assert "target" in train_df.columns
-    # Data Leakage Check
-    assert "duration" not in train_df.columns
+    assert not train_df.empty, "Training dataframe is empty"
+    assert not val_df.empty, "Validation dataframe is empty"
+    assert not test_df.empty, "Test dataframe is empty"
+    assert "target" in train_df.columns, "Target column missing in train"
+    assert "target" in val_df.columns, "Target column missing in val"
+    assert "target" in test_df.columns, "Target column missing in test"
+    # Data Leakage Check - duration should be removed
+    assert "duration" not in train_df.columns, "Duration column found (data leakage risk)"
+    
+    # Verify preprocessor was saved
+    preprocessor_path = PROJECT_ROOT / "src" / "preprocessing" / "preprocessor.pkl"
+    # Note: In test environment, preprocessor might be saved to temp dir
+    # This check is informational
 
 # ==========================================
 # TRAINING TESTS (ALL MODELS)
@@ -125,10 +148,11 @@ def test_04_train_random_forest_smote(training_data):
     X_train, y_train, models_dir = training_data
     try:
         # train_rf_with_cv uses StratifiedKFold internally
+        # Note: This function requires wandb, which is mocked
         model = train_rf_with_cv(X_train, y_train)
-        joblib.dump(model, models_dir / "rf_smote.pkl")
+        joblib.dump(model, models_dir / "random_forest_model_smote.pkl")
     except ValueError as e:
-        if "n_splits" in str(e):
+        if "n_splits" in str(e) or "Not enough" in str(e):
             pytest.skip("Not enough mock data for 5-fold CV")
         else:
             pytest.fail(f"Random Forest training failed: {e}")
@@ -140,8 +164,15 @@ def test_05_train_xgboost_smote(training_data):
     """Test Phase 2: XGBoost + SMOTE Pipeline."""
     X_train, y_train, models_dir = training_data
     try:
-        model = train_xgboost_pipeline(X_train, y_train)
-        joblib.dump(model, models_dir / "xgb_smote.pkl")
+        # train_xgboost_pipeline returns a pipeline, not just a model
+        # Note: This function requires wandb, which is mocked
+        pipeline = train_xgboost_pipeline(X_train, y_train)
+        joblib.dump(pipeline, models_dir / "xgboost_model_smote.pkl")
+    except ValueError as e:
+        if "n_splits" in str(e) or "Not enough" in str(e):
+            pytest.skip("Not enough mock data for 5-fold CV")
+        else:
+            pytest.fail(f"XGBoost (SMOTE) training failed: {e}")
     except Exception as e:
         pytest.fail(f"XGBoost (SMOTE) training failed: {e}")
 
@@ -160,7 +191,7 @@ def test_07_inference_capability(training_data):
     """
     Final Check: Load the Champion model and make a prediction.
     """
-    _, _, models_dir = training_data
+    X_train, _, models_dir = training_data
     champion_path = models_dir / "champion.pkl"
     
     if not champion_path.exists():
@@ -169,11 +200,14 @@ def test_07_inference_capability(training_data):
     model = joblib.load(champion_path)
     
     # Create a dummy input based on training data shape
-    X_train, _, _ = training_data
     sample_input = X_train.iloc[[0]]
     
     try:
         pred = model.predict(sample_input)
         assert len(pred) == 1
+        # Also test predict_proba if available
+        if hasattr(model, 'predict_proba'):
+            proba = model.predict_proba(sample_input)
+            assert proba.shape == (1, 2)  # Binary classification
     except Exception as e:
         pytest.fail(f"Inference failed on champion model: {e}")

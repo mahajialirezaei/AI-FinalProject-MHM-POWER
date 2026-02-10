@@ -39,3 +39,10 @@ plotting:
 model:
   path: "src/models/xgboost_weighted_optimized.pkl"
   threshold: 0.5974526405334473
+
+# WandB Configuration
+wandb:
+  enabled: true  # Set to false to disable WandB completely
+  mode: "online"  # Options: "online", "offline", "disabled"
+  project: "ai-finalproject-mhm-power"
+  entity: null  # Your WandB entity/username (optional)

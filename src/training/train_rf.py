@@ -4,7 +4,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import joblib
-import wandb
 from pathlib import Path
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import cross_val_score, StratifiedKFold
@@ -14,6 +13,10 @@ from sklearn.metrics import (
 )
 from imblearn.over_sampling import SMOTE
 from imblearn.pipeline import Pipeline as ImbPipeline
+from src.training.wandb_utils import (
+    init_wandb, log_metrics, log_config, log_artifact,
+    log_image, log_confusion_matrix, finish_wandb
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 DATA_PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
@@ -51,7 +54,7 @@ def train_rf_with_cv(X_train, y_train):
     ])
 
     # Log hyperparameters to WandB
-    wandb.config.update({
+    log_config({
         "model_type": "RandomForest",
         "n_estimators": 100,
         "random_state": 42,
@@ -69,8 +72,8 @@ def train_rf_with_cv(X_train, y_train):
 
     # Log CV scores to WandB
     for i, score in enumerate(cv_scores):
-        wandb.log({f"cv_fold_{i+1}_f1": score})
-    wandb.log({
+        log_metrics({f"cv_fold_{i+1}_f1": score})
+    log_metrics({
         "mean_cv_f1": np.mean(cv_scores),
         "std_cv_f1": np.std(cv_scores)
     })
@@ -93,7 +96,7 @@ def evaluate_and_save(model, X_val, y_val, feature_names):
     print(f"ROC-AUC Score: {roc_auc:.4f}")
 
     # Log metrics to WandB
-    wandb.log({
+    log_metrics({
         "val_accuracy": report['accuracy'],
         "val_precision": report['weighted avg']['precision'],
         "val_recall": report['weighted avg']['recall'],
@@ -102,23 +105,14 @@ def evaluate_and_save(model, X_val, y_val, feature_names):
     })
 
     # Log confusion matrix
-    cm = confusion_matrix(y_val, y_pred)
-    wandb.log({
-        "confusion_matrix": wandb.plot.confusion_matrix(
-            probs=None,
-            y_true=y_val,
-            preds=y_pred,
-            class_names=["Class 0", "Class 1"]
-        )
-    })
+    log_confusion_matrix(y_val, y_pred)
 
-    joblib.dump(model, MODELS_DIR / "random_forest_model_smote.pkl")
-    print(f"Model saved to {MODELS_DIR / 'random_forest_model_smote.pkl'}")
+    save_path = MODELS_DIR / "random_forest_model_smote.pkl"
+    joblib.dump(model, save_path)
+    print(f"Model saved to {save_path}")
 
     # Log model as artifact
-    artifact = wandb.Artifact('random_forest_model', type='model')
-    artifact.add_file(str(MODELS_DIR / "random_forest_model_smote.pkl"))
-    wandb.log_artifact(artifact)
+    log_artifact(str(save_path), "random_forest_model", "model")
 
 
 def plot_feature_importance(model, feature_names, save_dir):
@@ -142,7 +136,7 @@ def plot_feature_importance(model, feature_names, save_dir):
     plt.savefig(save_path)
 
     # Log feature importance plot to WandB
-    wandb.log({"feature_importance": wandb.Image(str(save_path))})
+    log_image(str(save_path), "feature_importance")
 
     plt.close()
     print(f"Feature importance plot saved to {save_path}")
@@ -150,21 +144,25 @@ def plot_feature_importance(model, feature_names, save_dir):
 
 if __name__ == "__main__":
     # Initialize WandB
-    wandb.init(
-        project="ai-finalproject-mhm-power",
-        name="random-forest-smote",
-        tags=["random-forest", "smote", "baseline"]
+    init_wandb(
+        run_name="random-forest-smote",
+        tags=["random-forest", "smote", "baseline", "phase-2"]
     )
+    
+    try:
+        X_train, y_train, X_val, y_val = load_data()
 
-    X_train, y_train, X_val, y_val = load_data()
+        rf_model = train_rf_with_cv(X_train, y_train)
 
-    rf_model = train_rf_with_cv(X_train, y_train)
+        evaluate_and_save(rf_model, X_val, y_val, X_train.columns)
 
-    evaluate_and_save(rf_model, X_val, y_val, X_train.columns)
+        plot_feature_importance(rf_model, X_train.columns, RESULTS_DIR)
 
-    plot_feature_importance(rf_model, X_train.columns, RESULTS_DIR)
-
-    print("\nStep 3 (with SMOTE) completed successfully.")
-
-    # Finish WandB run
-    wandb.finish()
+        print("\nStep 3 (with SMOTE) completed successfully.")
+        
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        raise
+    finally:
+        # Finish WandB run
+        finish_wandb()
