@@ -37,8 +37,7 @@ from src.training.train_weighted_xgboost import train_weighted_model  # noqa: E4
 
 # Increased Mock Data to satisfy n_splits=5 in Cross-Validation
 # We need at least 5 samples for each class ('yes' and 'no')
-MOCK_CSV_CONTENT = (  # noqa: E501
-    """age;job;marital;education;default;balance;housing;loan;contact;day;month;duration;campaign;pdays;previous;poutcome;y
+MOCK_CSV_CONTENT = """age;job;marital;education;default;balance;housing;loan;contact;day;month;duration;campaign;pdays;previous;poutcome;y
 58;management;married;tertiary;no;2143;yes;no;cellular;5;may;261;1;-1;0;unknown;no
 44;technician;single;secondary;no;29;yes;no;cellular;5;may;151;1;-1;0;unknown;no
 33;entrepreneur;married;secondary;no;2;yes;yes;cellular;5;may;76;1;-1;0;failure;yes
@@ -55,8 +54,7 @@ MOCK_CSV_CONTENT = (  # noqa: E501
 31;technician;single;secondary;no;600;no;no;cellular;5;may;210;1;-1;0;failure;yes
 41;admin;married;secondary;no;1100;yes;no;telephone;5;may;310;1;-1;0;unknown;no
 46;blue-collar;married;primary;no;60;yes;no;cellular;5;may;160;1;-1;0;success;yes
-"""
-)
+"""  # noqa: E501
 
 
 @pytest.fixture(scope="session")

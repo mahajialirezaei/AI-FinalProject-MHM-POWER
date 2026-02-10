@@ -64,12 +64,12 @@ jobs:
       run: |
         mkdir -p data/raw/bank
         wget -O /tmp/bank-marketing.zip "https://archive.ics.uci.edu/static/public/222/bank+marketing.zip"
-        unzip -j /tmp/bank-marketing.zip "*.csv" -d data/raw/bank/
-        # Rename to bank-full.csv if needed
-        if [ ! -f "data/raw/bank/bank-full.csv" ]; then
-          mv data/raw/bank/*.csv data/raw/bank/bank-full.csv
-        fi
-        rm /tmp/bank-marketing.zip
+        # Extract all files to temp directory first
+        unzip -q /tmp/bank-marketing.zip -d /tmp/bank-extract/
+        # Find and copy CSV file(s) to target directory
+        find /tmp/bank-extract -name "*.csv" -exec cp {} data/raw/bank/bank-full.csv \;
+        # Cleanup
+        rm -rf /tmp/bank-extract /tmp/bank-marketing.zip
 
     - name: Run tests
       run: |
@@ -100,12 +100,12 @@ jobs:
       run: |
         mkdir -p data/raw/bank
         wget -O /tmp/bank-marketing.zip "https://archive.ics.uci.edu/static/public/222/bank+marketing.zip"
-        unzip -j /tmp/bank-marketing.zip "*.csv" -d data/raw/bank/
-        # Rename to bank-full.csv if needed
-        if [ ! -f "data/raw/bank/bank-full.csv" ]; then
-          mv data/raw/bank/*.csv data/raw/bank/bank-full.csv
-        fi
-        rm /tmp/bank-marketing.zip
+        # Extract all files to temp directory first
+        unzip -q /tmp/bank-marketing.zip -d /tmp/bank-extract/
+        # Find and copy CSV file(s) to target directory
+        find /tmp/bank-extract -name "*.csv" -exec cp {} data/raw/bank/bank-full.csv \;
+        # Cleanup
+        rm -rf /tmp/bank-extract /tmp/bank-marketing.zip
 
     - name: Run EDA script
       run: |

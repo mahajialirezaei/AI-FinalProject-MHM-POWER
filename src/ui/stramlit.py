@@ -201,7 +201,7 @@ st.markdown(
 )
 st.markdown(
     '<div class="sub-header">AI-powered prediction system for term deposit '
-    'subscription probability</div>',
+    "subscription probability</div>",
     unsafe_allow_html=True,
 )
 
