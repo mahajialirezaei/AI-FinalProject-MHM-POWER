@@ -63,11 +63,20 @@ jobs:
     - name: Download dataset
       run: |
         mkdir -p data/raw/bank
-        wget -O /tmp/bank-marketing.zip "https://archive.ics.uci.edu/static/public/222/bank+marketing.zip"
+        wget -O /tmp/bank-marketing.zip "https://archive.ics.uci.edu/static/public/222/bank+marketing.zip" || exit 1
         # Extract all files to temp directory first
-        unzip -q /tmp/bank-marketing.zip -d /tmp/bank-extract/
+        unzip -q /tmp/bank-marketing.zip -d /tmp/bank-extract/ || exit 1
         # Find and copy CSV file(s) to target directory
-        find /tmp/bank-extract -name "*.csv" -exec cp {} data/raw/bank/bank-full.csv \;
+        if ! find /tmp/bank-extract -name "*.csv" -exec cp {} data/raw/bank/bank-full.csv \; ; then
+          echo "Error: No CSV files found in downloaded archive"
+          exit 1
+        fi
+        # Verify the file was created
+        if [ ! -f "data/raw/bank/bank-full.csv" ]; then
+          echo "Error: bank-full.csv was not created"
+          exit 1
+        fi
+        echo "Dataset downloaded successfully: $(ls -lh data/raw/bank/bank-full.csv)"
         # Cleanup
         rm -rf /tmp/bank-extract /tmp/bank-marketing.zip
 
@@ -99,11 +108,20 @@ jobs:
     - name: Download dataset
       run: |
         mkdir -p data/raw/bank
-        wget -O /tmp/bank-marketing.zip "https://archive.ics.uci.edu/static/public/222/bank+marketing.zip"
+        wget -O /tmp/bank-marketing.zip "https://archive.ics.uci.edu/static/public/222/bank+marketing.zip" || exit 1
         # Extract all files to temp directory first
-        unzip -q /tmp/bank-marketing.zip -d /tmp/bank-extract/
+        unzip -q /tmp/bank-marketing.zip -d /tmp/bank-extract/ || exit 1
         # Find and copy CSV file(s) to target directory
-        find /tmp/bank-extract -name "*.csv" -exec cp {} data/raw/bank/bank-full.csv \;
+        if ! find /tmp/bank-extract -name "*.csv" -exec cp {} data/raw/bank/bank-full.csv \; ; then
+          echo "Error: No CSV files found in downloaded archive"
+          exit 1
+        fi
+        # Verify the file was created
+        if [ ! -f "data/raw/bank/bank-full.csv" ]; then
+          echo "Error: bank-full.csv was not created"
+          exit 1
+        fi
+        echo "Dataset downloaded successfully: $(ls -lh data/raw/bank/bank-full.csv)"
         # Cleanup
         rm -rf /tmp/bank-extract /tmp/bank-marketing.zip
 

@@ -47,7 +47,7 @@ def load_data():
 
         return X_train, y_train, X_val, y_val
     except FileNotFoundError:
-        raise FileNotFoundError(f"Data not found. Run preprocessing first.")
+        raise FileNotFoundError("Data not found. Run preprocessing first.")
 
 
 def objective(trial, X, y):
