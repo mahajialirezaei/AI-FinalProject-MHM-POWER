@@ -138,10 +138,14 @@ python -m src.preprocessing.main
 
 This creates train/val/test splits and saves the preprocessor to `src/models/preprocessor.pkl`.
 
-### 3. Train Baseline Model
+### 3. Train Models
 
 ```bash
 python -m src.training.train_baseline
+python -m src.training.train_rf
+python -m src.training.train_xgboost
+python -m src.training.optimize_xgboost
+python -m src.training.optimize_weighted_xgboost
 ```
 
 ### 4. Launch Web Interface
