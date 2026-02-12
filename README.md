@@ -144,6 +144,7 @@ This creates train/val/test splits and saves the preprocessor to `src/models/pre
 python -m src.training.train_baseline
 python -m src.training.train_rf
 python -m src.training.train_xgboost
+python -m src.training.train_weighted_xgboost
 python -m src.training.optimize_xgboost
 python -m src.training.optimize_weighted_xgboost
 ```
