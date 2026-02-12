@@ -239,7 +239,7 @@ def load_background_data(n_samples=100):
         return background_data.values
     except FileNotFoundError:
         return None
-    except Exception as e:
+    except Exception:
         # Silently return None - error will be handled in UI
         return None
 
@@ -252,9 +252,6 @@ def load_shap_explainer(_model, background_data):
     since XGBoost models are not hashable. The explainer is cached based on background_data.
     """
     try:
-        # Check if model is XGBoost (TreeExplainer works best with tree models)
-        model_type = type(_model).__name__
-
         if background_data is None:
             # If no background data, use TreeExplainer without background
             explainer = shap.TreeExplainer(_model)
@@ -738,7 +735,8 @@ if predict_button:
         st.markdown("---")
         st.markdown("### 🔍 Model Explanation (SHAP)")
         st.info(
-            "SHAP (SHapley Additive exPlanations) shows how each feature contributes to this prediction. "
+            "SHAP (SHapley Additive exPlanations) shows how each feature "
+            "contributes to this prediction. "
             "Positive values push toward subscription, negative values push away."
         )
 
@@ -788,7 +786,8 @@ if predict_button:
                             plt.close()
                         else:
                             st.warning(
-                                "Could not generate waterfall plot. Showing feature contributions instead."
+                                "Could not generate waterfall plot. "
+                                "Showing feature contributions instead."
                             )
                             # Fallback: show feature contributions table
                             # Ensure processed_input is numpy array
@@ -824,7 +823,8 @@ if predict_button:
                     with tab2:
                         st.markdown("#### Feature Contribution Table")
                         st.caption(
-                            "Top features contributing to this prediction, sorted by absolute impact"
+                            "Top features contributing to this prediction, "
+                            "sorted by absolute impact"
                         )
 
                         # Create feature contribution dataframe
@@ -853,7 +853,8 @@ if predict_button:
                         # Add color coding
                         def color_shap_value(val):
                             if val > 0:
-                                return "background-color: #d4edda; color: #155724"  # Green for positive
+                                # Green for positive
+                                return "background-color: #d4edda; color: #155724"
                             else:
                                 return (
                                     "background-color: #f8d7da; color: #721c24"  # Red for negative
@@ -909,7 +910,8 @@ if predict_button:
                                     plt.close()
                                 else:
                                     st.info(
-                                        "Global importance plot not available. Use local explanation instead."
+                                        "Global importance plot not available. "
+                                        "Use local explanation instead."
                                     )
                             else:
                                 st.info("Test data not found. Global importance requires test.csv")
@@ -921,17 +923,20 @@ if predict_button:
                 else:
                     st.warning("⚠️ Could not calculate SHAP values.")
                     st.info(
-                        "This may occur if the model structure is incompatible or input format is incorrect."
+                        "This may occur if the model structure is incompatible "
+                        "or input format is incorrect."
                     )
             else:
                 st.warning("⚠️ Could not create SHAP explainer.")
                 st.info(
-                    "SHAP explanations require a tree-based model (XGBoost). Ensure the champion model is loaded correctly."
+                    "SHAP explanations require a tree-based model (XGBoost). "
+                    "Ensure the champion model is loaded correctly."
                 )
         else:
             st.warning("⚠️ Champion model not found.")
             st.info(
-                "SHAP explanations require the champion model (xgboost_weighted_optimized.pkl). Please train the model first."
+                "SHAP explanations require the champion model "
+                "(xgboost_weighted_optimized.pkl). Please train the model first."
             )
 
     except Exception as e:
