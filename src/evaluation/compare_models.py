@@ -90,7 +90,7 @@ def run_comparison():
     thresholds_dict = config.get("model", {}).get("thresholds", {})
     default_threshold = config.get("model", {}).get("threshold", 0.5)
 
-    print(f"[INFO] Using model-specific thresholds from Config")
+    print("[INFO] Using model-specific thresholds from Config")
     print(f"[INFO] Default threshold: {default_threshold}")
     if thresholds_dict:
         print(f"[INFO] Model thresholds: {thresholds_dict}")
@@ -193,7 +193,10 @@ def run_comparison():
     # Get champion threshold for title
     champion_threshold = thresholds_dict.get("xgboost_weighted_optimized", default_threshold)
     plt.title(
-        f"Model Comparison with Model-Specific Thresholds (Champion Thresh={champion_threshold:.3f})",
+        (
+            f"Model Comparison with Model-Specific Thresholds "
+            f"(Champion Thresh={champion_threshold:.3f})"
+        ),
         fontsize=14,
         fontweight="bold",
     )
