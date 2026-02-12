@@ -27,31 +27,26 @@ venv/
 ENV/
 env/
 
-# PyCharm
+# IDE
 .idea/
-
-# VS Code
 .vscode/
+.cursor/
 
-# Data files (keep structure, ignore actual data)
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Data files (large, should be mounted as volumes if needed)
 /data/raw/
 /data/external/
 /data/processed/*.csv
 /data/processed/*.pkl
 /data/processed/*.parquet
 
-# Model files
+# Model files (should be mounted as volumes, not built into image)
 /src/models/*.pkl
 /src/models/*.joblib
-/models/*.pt
-/models/*.pth
-/models/*.h5
-/models/*.ckpt
-/models/*.joblib
-
-# Preprocessor files (generated)
-/src/preprocessing/*.pkl
-/src/preprocessing/*.joblib
 
 # Reports and figures (generated files)
 /reports/figures/*.png
@@ -75,7 +70,7 @@ wandb/
 .ipynb_checkpoints/
 **/.ipynb_checkpoints/
 
-# Streamlit cache
+# Streamlit cache (will be created at runtime)
 .streamlit/
 .streamlit_cache/
 
@@ -108,26 +103,15 @@ htmlcov/
 .dmypy.json
 dmypy.json
 
-# ML/AI specific
-*.hdf5
-*.h5
-*.ckpt
-*.pth
-*.pt
-*.onnx
-*.pb
-*.tflite
-*.mlmodel
+# CI/CD
+.github/
 
-# Data science
-*.feather
-*.parquet
-*.arrow
+# Documentation (optional, uncomment if you want to exclude)
+# docs/
+# *.md
+# README.md
 
 # Environment variables
 .env.local
 .env.*.local
 *.env
-
-# IDE - Cursor
-.cursor/

@@ -38,4 +38,19 @@ plotting:
 # Model Inference Settings
 model:
   path: "src/models/xgboost_weighted_optimized.pkl"
-  threshold: 0.5974526405334473
+  threshold: 0.5974526405334473  # Champion model threshold (for backward compatibility)
+  # Model-specific thresholds
+  thresholds:
+    baseline_logreg: 0.5
+    random_forest_model_smote: 0.5
+    xgboost_model_smote: 0.5
+    xgboost_weighted: 0.5
+    xgboost_optimized: 0.5
+    xgboost_weighted_optimized: 0.5974526405334473  # Champion model optimized threshold
+
+# WandB Configuration
+wandb:
+  enabled: true  # Set to false to disable WandB completely
+  mode: "online"  # Options: "online", "offline", "disabled"
+  project: "ai-finalproject-mhm-power"
+  entity: null  # Your WandB entity/username (optional)
