@@ -15,7 +15,7 @@ def run_shap_analysis():
     model = joblib.load(MODEL_PATH)
     test_df = pd.read_csv(DATA_PROCESSED_DIR / "test.csv")
 
-    X_test = test_df.drop(columns=['target'])
+    X_test = test_df.drop(columns=["target"])
 
     explainer = shap.TreeExplainer(model)
     shap_values = explainer.shap_values(X_test)
@@ -23,7 +23,7 @@ def run_shap_analysis():
     plt.figure(figsize=(10, 8))
     shap.summary_plot(shap_values, X_test, show=False)
     plt.title("SHAP Summary Plot - Feature Impact on Prediction")
-    plt.savefig(RESULTS_DIR / "shap_summary_plot.png", bbox_inches='tight')
+    plt.savefig(RESULTS_DIR / "shap_summary_plot.png", bbox_inches="tight")
     plt.close()
     print(f"Summary plot saved to {RESULTS_DIR / 'shap_summary_plot.png'}")
 
@@ -34,9 +34,9 @@ def run_shap_analysis():
         shap_values[idx, :],
         X_test.iloc[idx, :],
         matplotlib=True,
-        show=False
+        show=False,
     )
-    plt.savefig(RESULTS_DIR / f"shap_force_plot_customer_{idx}.png", bbox_inches='tight')
+    plt.savefig(RESULTS_DIR / f"shap_force_plot_customer_{idx}.png", bbox_inches="tight")
     plt.close()
     print(f"Individual force plot saved for customer {idx}")
 

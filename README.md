@@ -1,229 +1,632 @@
-# 📋 Project Overview
+# 🏦 Bank Marketing Campaign Predictor
 
-This project performs comprehensive **Exploratory Data Analysis (EDA)**, **Data Preprocessing**, and **Industrial Machine Learning Modeling** on the UCI Bank Marketing dataset. The primary goal is to predict whether a client will subscribe to a term deposit (variable `y`) while addressing real-world challenges like class imbalance.
+[![Python 3.10](https://img.shields.io/badge/python-3.10-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-* **Dataset**: [UCI Bank Marketing Dataset](https://archive.ics.uci.edu/dataset/222/bank+marketing)
-* **Task**: Binary Classification
-* **Instances**: 45,211 (`bank-full.csv`)
-* **Features**: 16 input variables + 1 target variable
+A comprehensive machine learning project for predicting bank marketing campaign success using the UCI Bank Marketing dataset. This project implements a complete ML pipeline from exploratory data analysis to model deployment, featuring multiple model architectures, hyperparameter optimization, and an interactive web interface.
 
-> **Note**: Replace `USERNAME` and `REPO_NAME` in the CI badge URL above with your GitHub username and repository name.
+## 📋 Table of Contents
 
----
+- [Overview](#overview)
+- [Features](#features)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Project Structure](#project-structure)
+- [Usage Guide](#usage-guide)
+- [Model Performance](#model-performance)
+- [Configuration](#configuration)
+- [Testing](#testing)
+- [CI/CD](#cicd)
+- [Web Interface](#web-interface)
+- [WandB Integration](#wandb-integration)
+- [Contributing](#contributing)
+- [License](#license)
+- [References](#references)
+
+## 🎯 Overview
+
+This project addresses the challenge of predicting whether a bank client will subscribe to a term deposit based on customer characteristics and campaign information. The dataset contains **45,211 instances** with **16 input features** and exhibits significant **class imbalance** (88% negative, 12% positive), making it a realistic industrial machine learning problem.
+
+### Key Objectives
+
+- **Exploratory Data Analysis**: Comprehensive analysis with 6+ visualizations
+- **Data Preprocessing**: Feature engineering, encoding, and train/val/test splitting
+- **Model Development**: Multiple algorithms from baseline to production-ready models
+- **Hyperparameter Optimization**: Bayesian optimization using Optuna
+- **Model Evaluation**: Comprehensive metrics, ROC curves, and SHAP explainability
+- **Deployment**: Interactive Streamlit web interface for real-time predictions
+
+### Dataset
+
+- **Source**: [UCI Bank Marketing Dataset](https://archive.ics.uci.edu/dataset/222/bank+marketing)
+- **Task**: Binary Classification
+- **Instances**: 45,211 (`bank-full.csv`)
+- **Features**: 16 input variables + 1 target variable (`y`)
+
+## ✨ Features
+
+### 🔬 Data Science Pipeline
+- **Comprehensive EDA** with automated visualization generation
+- **Robust preprocessing** with handling of missing values and categorical encoding
+- **Data leakage prevention** (duration variable excluded)
+- **Stratified train/validation/test splits** (70/15/15)
+
+### 🤖 Machine Learning Models
+- **Baseline**: Logistic Regression with balanced classes
+- **Random Forest**: Tree-based ensemble with SMOTE
+- **XGBoost Variants**: Multiple approaches including SMOTE and class weighting
+- **Champion Model**: Optimized weighted XGBoost (ROC-AUC: 0.789)
+
+### 🎛️ Advanced Features
+- **Hyperparameter Optimization**: Optuna-based Bayesian optimization
+- **Threshold Tuning**: Optimal decision boundary for F1-score maximization
+- **Model Explainability**: SHAP plots for global and local interpretability
+- **Model Comparison**: Comprehensive evaluation across all models
+
+### 🚀 Deployment & Infrastructure
+- **Interactive Web UI**: Streamlit-based prediction interface
+- **WandB Integration**: Experiment tracking with online/offline modes
+- **CI/CD Pipeline**: Automated testing and code quality checks
+- **Comprehensive Testing**: Unit tests and smoke tests
+
+## 📦 Installation
+
+### Prerequisites
+
+- Python 3.10 or higher
+- pip package manager
+- Git (for cloning the repository)
+
+### Step 1: Clone the Repository
+
+```bash
+git clone <repository-url>
+cd AI-FinalProject-MHM-POWER
+```
+
+### Step 2: Create Virtual Environment (Recommended)
+
+```bash
+python -m venv venv
+
+# On Windows
+venv\Scripts\activate
+
+# On Linux/Mac
+source venv/bin/activate
+```
+
+### Step 3: Install Dependencies
+
+```bash
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+### Step 4: Download Dataset
+
+The dataset will be automatically downloaded during preprocessing, or you can manually download it:
+
+```bash
+mkdir -p data/raw/bank
+wget -O /tmp/bank-marketing.zip "https://archive.ics.uci.edu/static/public/222/bank+marketing.zip"
+unzip -j /tmp/bank-marketing.zip "bank-full.csv" -d data/raw/bank/
+rm /tmp/bank-marketing.zip
+```
+
+Alternatively, you can use the Python package:
+```bash
+pip install ucimlrepo
+python -c "from ucimlrepo import fetch_ucirepo; bank = fetch_ucirepo(id=222); bank.data.features.to_csv('data/raw/bank/bank-full.csv', index=False, sep=';')"
+```
+
+## 🚀 Quick Start
+
+### 1. Run Exploratory Data Analysis
+
+```bash
+python run_eda.py
+```
+
+This generates visualizations in `reports/figures/` and displays statistics in the console.
+
+### 2. Preprocess Data
+
+```bash
+python -m src.preprocessing.main
+```
+
+This creates train/val/test splits and saves the preprocessor to `src/models/preprocessor.pkl`.
+
+### 3. Train Baseline Model
+
+```bash
+python -m src.training.train_baseline
+```
+
+### 4. Launch Web Interface
+
+```bash
+python run_ui.py
+# or
+streamlit run src/ui/streamlit.py
+```
+
+The interface will open in your default browser at `http://localhost:8501`.
 
 ## 📁 Project Structure
 
-This project follows a modular Data Science structure:
-
-```plaintext
+```
 AI-FinalProject-MHM-POWER/
 │
-├── config/                     # Configuration files
-│   └── config.yaml             # Main configuration settings (includes production threshold)
+├── config/                          # Configuration files
+│   └── config.yaml                  # Main configuration (paths, thresholds, WandB)
 │
-├── data/                       # Data directory
-│   ├── raw/                    # Raw, immutable data (bank-full.csv)
-│   └── processed/              # Processed data splits (train, val, test)
+├── data/                            # Data directory
+│   ├── raw/                         # Raw, immutable data
+│   │   └── bank/
+│   │       └── bank-full.csv       # Original dataset
+│   └── processed/                   # Processed data splits
+│       ├── train.csv
+│       ├── val.csv
+│       └── test.csv
 │
-├── results/                    # Model evaluation artifacts
-│   ├── charts/                 # Performance plots and analysis
-│   │   ├── roc_comparison_all.png         # ROC Curve comparing ALL models
-│   │   ├── shap_summary_plot.png          # SHAP Global Importance
-│   │   ├── shap_force_plot_customer_0.png # SHAP Local Interpretation
-│   │   ├── cm_xgboost_weighted_optimized.png # Champion Model Confusion Matrix
-│   │   ├── comparison_production_final.png
-│   │   └── ... (other confusion matrices)
-│   ├── tuning/                 # Threshold tuning artifacts
-│   │   └── threshold_tuning_curve.png
-│   └── optimization/           # Optuna optimization plots
-│
-├── src/                        # Source code
-│   ├── eda/                    # EDA module
-│   │   ├── data_loader.py
-│   │   ├── visualizations.py
-│   │   └── main.py
-│   ├── evaluation/             # Model comparison and evaluation logic
-│   │   ├── compare_models.py   # Compares all trained models
-│   │   ├── evaluate_final_model.py # Evaluates Champion Model (ROC/CM)
-│   │   ├── explainability_shap.py  # Generates SHAP explanations
-│   │   └── tune_threshold.py   # Auto-tunes decision threshold
-│   ├── models/                 # Serialized models (.pkl files)
+├── src/                             # Source code
+│   ├── eda/                         # Exploratory Data Analysis
+│   │   ├── data_loader.py          # Data loading utilities
+│   │   ├── visualizations.py        # Plotting functions
+│   │   └── main.py                 # Main EDA script
+│   │
+│   ├── preprocessing/               # Data preprocessing
+│   │   ├── main.py                 # Preprocessing pipeline
+│   │   ├── *.pkl                   # Trained models and preprocessor
+│   │
+│   ├── training/                    # Model training scripts
+│   │   ├── train_baseline.py       # Logistic Regression baseline
+│   │   ├── train_rf.py             # Random Forest with SMOTE
+│   │   ├── train_xgboost.py        # XGBoost with SMOTE
+│   │   ├── train_weighted_xgboost.py  # Weighted XGBoost
+│   │   ├── optimize_xgboost.py     # Optuna optimization (SMOTE)
+│   │   ├── optimize_weighted_xgboost.py  # Optuna optimization (Weighted)
+│   │   └── wandb_utils.py         # WandB utility functions
+│   │
+│   ├── evaluation/                  # Model evaluation
+│   │   ├── compare_models.py       # Compare all models
+│   │   ├── evaluate_final_model.py # Champion model evaluation
+│   │   ├── explainability_shap.py  # SHAP explanations
+│   │   └── tune_threshold.py      # Threshold optimization
+│   │
+│   ├── models/                      # Trained models (gitignored)
 │   │   ├── baseline_logreg.pkl
-│   │   ├── random_forest_model.pkl
+│   │   ├── random_forest_model_smote.pkl
 │   │   ├── xgboost_model_smote.pkl
-│   │   ├── xgboost_optimized.pkl
 │   │   ├── xgboost_weighted.pkl
+│   │   ├── xgboost_optimized.pkl
 │   │   └── xgboost_weighted_optimized.pkl  # Champion Model
-│   ├── preprocessing/          # Data transformation
-│   │   └── main.py             # Main preprocessing script
-│   └── training/               # Training pipelines
-│       ├── train_baseline.py   # Phase 1: Logistic Regression
-│       ├── train_rf.py         # Phase 2: Random Forest
-│       ├── train_xgboost.py            # Phase 2: XGBoost + SMOTE
-│       ├── optimize_xgboost.py         # Phase 2: Optimization (SMOTE)
-│       ├── train_weighted_xgboost.py   # Phase 2: Weighted XGBoost
-│       └── optimize_weighted_xgboost.py # Phase 2: Optimization (Weighted)
+│   │
+│   └── ui/                          # Web interface
+│       └── streamlit.py             # Streamlit application
 │
-├── tests/                      # Unit and Smoke tests
-│   ├── test_data_loader.py
-│   └── test_smoke.py
-├── requirements.txt            # Python dependencies
-└── README.md                   # This file
-
+├── results/                         # Evaluation results
+│   ├── charts/                     # Performance plots
+│   ├── tuning/                     # Threshold tuning results
+│   └── optimization/               # Optuna optimization plots
+│
+├── tests/                           # Test suite
+│   ├── test_data_loader.py        # Unit tests
+│   └── test_smoke.py              # Smoke tests
+│
+├── notebooks/                       # Jupyter notebooks
+│   └── 01_exploratory_data_analysis.ipynb
+│
+├── .github/
+│   └── workflows/                   # CI/CD pipelines
+│       ├── ci.yml                  # Main CI pipeline
+│       └── smoke-test.yml          # Smoke test pipeline
+│
+├── requirements.txt                 # Python dependencies
+├── pyproject.toml                   # Project metadata
+├── Makefile                         # Common commands
+├── run_eda.py                       # EDA entry point
+├── run_ui.py                        # UI entry point
+└── README.md                        # This file
 ```
 
----
+## 📖 Usage Guide
 
-## 🚀 Pipeline Workflow
+### Data Preparation
 
-### Phase 1: Baseline Foundation
+#### 1. Exploratory Data Analysis
 
-1. **EDA**: Analyze raw data and generate 6+ required visualizations.
-2. **Preprocessing**: Standardize numerical features and encode categorical variables.
-3. **Baseline Training**: Train a **Logistic Regression** model to establish a reference point.
+```bash
+python run_eda.py
+# or
+python -m src.eda.main
+```
 
-### Phase 2: Industrial Modeling & Deployment
+**Output**: Visualizations saved to `reports/figures/`:
+- Class imbalance analysis
+- Categorical conversion rates
+- Numerical variable distributions
+- Correlation heatmap
+- Seasonality analysis
+- Duration analysis
 
-This phase represents the iterative journey to find the best performing model for an imbalanced dataset, culminating in deployment.
+#### 2. Data Preprocessing
 
-4. **Random Forest Training**:
+```bash
+python -m src.preprocessing.main
+```
 
-* **Goal**: Establish a strong tree-based baseline.
-* **Technique**: Uses `class_weight='balanced'` to handle the 88/12 imbalance.
-* **Result**: High accuracy but low recall; the model struggled to find minority class instances.
+**Output**:
+- Processed train/val/test splits in `data/processed/`
+- Preprocessor saved to `src/models/preprocessor.pkl`
 
-5. **XGBoost with SMOTE (Manual)**:
+**Features**:
+- Removes `duration` variable (data leakage prevention)
+- Handles missing values (`unknown` → NaN)
+- Standardizes numerical features
+- One-hot encodes categorical features
+- Stratified splitting (70/15/15)
 
-* **Goal**: Improve Recall by synthesizing new data.
-* **Technique**: Applied **SMOTE (Synthetic Minority Over-sampling Technique)** to generate synthetic examples of subscribers before training XGBoost.
-* **Outcome**: Improved Recall compared to Random Forest, but Precision dropped due to the noise introduced by synthetic data.
+### Model Training
 
-6. **Optimized XGBoost with SMOTE**:
+#### Phase 1: Baseline Model
 
-* **Goal**: Refine the SMOTE-based model.
-* **Technique**: Used **Optuna** to search for the best hyperparameters (learning rate, depth) specifically for the SMOTE-augmented dataset.
-* **Outcome**: Slight improvement in F1-Score (0.41), but the "synthetic" nature of the data still limited performance.
+```bash
+python -m src.training.train_baseline
+```
 
-7. **Weighted XGBoost (The Breakthrough)**:
+Trains a Logistic Regression model with balanced class weights.
 
-* **Goal**: Train on pure data without synthetic noise.
-* **Technique**: Removed SMOTE and utilized XGBoost's native `scale_pos_weight` parameter to mathematically penalize mistakes on the positive class.
-* **Outcome**: Significant jump in Recall (to ~58%) and ROC-AUC, proving that preserving the original data distribution was superior to SMOTE for this specific dataset.
+#### Phase 2: Advanced Models
 
-8. **Champion Model Optimization (Weighted + Optuna)**:
+```bash
+# Random Forest with SMOTE
+python -m src.training.train_rf
 
-* **Technique**: Ran Bayesian Optimization on the Weighted XGBoost model.
-* **Result**: Produced the `xgboost_weighted_optimized.pkl` model, achieving the highest ROC-AUC of **0.789**.
+# XGBoost with SMOTE
+python -m src.training.train_xgboost
 
-9. **Threshold Tuning**:
+# Weighted XGBoost (No SMOTE)
+python -m src.training.train_weighted_xgboost
+```
 
-* **Technique**: Adjusted the decision boundary from the default `0.5` to an optimized **0.5611**.
-* **Impact**: Maximized the F1-Score for the "Yes" class, balancing the trade-off between missing customers and annoying them with false calls.
+#### Phase 3: Hyperparameter Optimization
 
----
+```bash
+# Optimize XGBoost with SMOTE
+python -m src.training.optimize_xgboost
 
-## 💻 Essential Commands
+# Optimize Weighted XGBoost (Champion Model)
+python -m src.training.optimize_weighted_xgboost
+```
 
-Run these commands from the project root (`AI-FinalProject-MHM-POWER/`) to reproduce the results.
+### Model Evaluation
 
-### 1. Data Preparation
+#### Compare All Models
 
-| Task | Command | Output Location |
-| --- | --- | --- |
-| **Run EDA** | `python -m src.eda.main` | `reports/figures/` |
-| **Preprocess Data** | `python -m src.preprocessing.main` | `data/processed/` |
-| **Train Baseline** | `python -m src.training.train_baseline` | `src/models/baseline_logreg.pkl` |
+```bash
+python -m src.evaluation.compare_models
+```
 
-### 2. Training & Optimization
+Generates comparison charts showing performance metrics across all models.
 
-| Model Type | Command | Description |
-| --- | --- | --- |
-| **Baseline** | `python -m src.training.train_baseline` | Trains Logistic Regression |
-| **Random Forest** | `python -m src.training.train_rf` | Trains Random Forest (Balanced) |
-| **XGB + SMOTE** | `python -m src.training.train_xgboost` | Trains XGBoost with SMOTE |
-| **Optimize (SMOTE)** | `python -m src.training.optimize_xgboost` | Optimizes XGBoost (SMOTE) params |
-| **Weighted XGB** | `python -m src.training.train_weighted_xgboost` | Trains Weighted XGBoost (No SMOTE) |
-| **Champion Optimization** | `python -m src.training.optimize_weighted_xgboost` | **(Best)** Optimizes Weighted XGBoost |
+#### Evaluate Champion Model
 
-### 3. Evaluation & Explainability (New)
+```bash
+python -m src.evaluation.evaluate_final_model
+```
 
-| Task | Command | Description |
-| --- | --- | --- |
-| **Tune Threshold** | `python -m src.evaluation.tune_threshold` | Finds best threshold & updates `config.yaml` |
-| **Compare Models** | `python -m src.evaluation.compare_models` | Generates ROC/Metrics for all models |
-| **Final Evaluation** | `python -m src.evaluation.evaluate_final_model` | **ROC & Confusion Matrix** for Champion Model |
-| **SHAP Analysis** | `python -m src.evaluation.explainability_shap` | Generates **SHAP** plots for interpretability |
-| **Smoke Tests** | `pytest -v -m smoke` | Verifies pipeline integrity |
+Creates ROC curve and confusion matrix for the production model.
 
----
+#### SHAP Explainability
 
-## 📊 Performance Analysis
+```bash
+python -m src.evaluation.explainability_shap
+```
 
-| Metric | Baseline | RF | XGB (SMOTE) | XGB (Opt+SMOTE) | XGB (Weighted) | **Production (Tuned)** |
-| --- | --- | --- | --- | --- | --- | --- |
-| **Accuracy** | 76.0% | 88.3% | 89.2% | 87.0% | 82.6% | **86.0%** |
-| **Recall** | **59.9%** | 30.3% | 29.7% | 39.1% | 58.1% | **52.0%** (Balanced) |
-| **Precision** | 26.6% | 50.6% | 58.4% | 44.0% | 35.4% | **43.0%** |
-| **F1-Score** | 0.36 | 0.37 | 0.39 | 0.41 | 0.44 | **0.47** (Best) |
-| **ROC-AUC** | 0.749 | 0.755 | 0.773 | 0.750 | 0.787 | **0.789** |
+Generates SHAP plots for model interpretability:
+- Global feature importance
+- Local explanations for individual predictions
 
-**Observation**:
+#### Threshold Tuning
 
-* **SMOTE Approach**: Steps 5 & 6 showed that while SMOTE improved upon Random Forest, it hit a performance ceiling (F1 ~0.41).
-* **Weighted Approach**: Steps 7 & 8 proved that using `scale_pos_weight` was the superior strategy for this dataset, yielding a higher ROC-AUC.
-* **Production Model**: By tuning the threshold of the Weighted model to **0.5611**, we achieved the peak F1-Score of **0.47**, striking the optimal balance for the business case.
+```bash
+python -m src.evaluation.tune_threshold
+```
 
----
+Finds optimal decision threshold and updates `config/config.yaml`.
 
-## 📊 Output Files
+### Web Interface
 
-### Industrial Model Results (`results/charts/` & `results/tuning/`)
+Launch the interactive prediction interface:
 
-* `roc_comparison_all.png`: **Critical**: Comparison of ROC curves for all developed models.
-* `shap_summary_plot.png`: **Explainability**: Shows which features (e.g., Balance, Campaign) drive predictions.
-* `shap_force_plot_*.png`: Local explanation for specific customer predictions.
-* `cm_xgboost_weighted_optimized.png`: Confusion Matrix of the final Champion model.
-* `comparison_production_final.png`: Bar chart proving the Production model outperforms all previous versions.
-* `feature_importance_rf.png`: Bar chart showing the top 15 features influencing the RF model.
+```bash
+python run_ui.py
+```
 
----
+**Features**:
+- Input customer information via sidebar
+- Real-time predictions from all models
+- Visual comparison of model probabilities
+- Production threshold-based recommendations
+- Model agreement analysis
 
-## ⚠️ Data Leakage Warning
+## 📊 Model Performance
 
-The `duration` variable is strictly removed during preprocessing. As per project guidelines, this variable is unknown before a call and its inclusion would lead to unrealistic performance.
+### Performance Metrics
 
----
+| Model | Accuracy | Precision | Recall | F1-Score | ROC-AUC |
+|-------|----------|-----------|--------|----------|---------|
+| Baseline (Logistic Regression) | 76.0% | 26.6% | 59.9% | 0.36 | 0.749 |
+| Random Forest (SMOTE) | 88.3% | 50.6% | 30.3% | 0.37 | 0.755 |
+| XGBoost (SMOTE) | 89.2% | 58.4% | 29.7% | 0.39 | 0.773 |
+| XGBoost Optimized (SMOTE) | 87.0% | 44.0% | 39.1% | 0.41 | 0.750 |
+| XGBoost Weighted | 82.6% | 35.4% | 58.1% | 0.44 | 0.787 |
+| **Champion (Weighted + Optimized)** | **86.0%** | **43.0%** | **52.0%** | **0.47** | **0.789** |
+
+### Key Insights
+
+1. **SMOTE vs Weighted Approach**: While SMOTE improved upon Random Forest, it hit a performance ceiling. The weighted approach (using `scale_pos_weight`) proved superior for this dataset.
+
+2. **Champion Model**: The optimized weighted XGBoost achieves the best balance with:
+   - Highest ROC-AUC: **0.789**
+   - Best F1-Score: **0.47**
+   - Balanced precision/recall trade-off
+
+3. **Threshold Optimization**: The production threshold of **0.597** maximizes F1-score while balancing false positives and false negatives.
+
+## ⚙️ Configuration
+
+All configuration is managed through `config/config.yaml`:
+
+```yaml
+# Data paths
+data:
+  raw: "data/raw/bank/bank-full.csv"
+  delimiter: ";"
+
+# Model settings
+model:
+  path: "src/models/xgboost_weighted_optimized.pkl"
+  threshold: 0.5974526405334473  # Production threshold
+
+# WandB settings
+wandb:
+  enabled: true
+  mode: "online"  # Options: "online", "offline", "disabled"
+  project: "ai-finalproject-mhm-power"
+```
+
+### WandB Configuration
+
+The project supports flexible WandB integration:
+
+- **Online Mode**: Logs to WandB cloud (requires authentication)
+- **Offline Mode**: Saves logs locally (`WANDB_MODE=offline`)
+- **Disabled**: No WandB logging (`enabled: false`)
+
+Set via config file or environment variable:
+```bash
+export WANDB_MODE=offline
+```
 
 ## 🧪 Testing
 
-Run the automated **Smoke Tests** to verify the training and preprocessing pipelines:
+### Run All Tests
+
+```bash
+pytest tests/ -v
+```
+
+### Run Smoke Tests
 
 ```bash
 pytest -v -m smoke tests/test_smoke.py
-
-
 ```
 
-### Continuous Integration (CI/CD)
+Smoke tests verify:
+- Configuration file structure
+- Data preprocessing pipeline
+- Model training (all models)
+- Model inference capability
 
-This project uses GitHub Actions for automated CI/CD. The pipeline automatically runs:
-- Code quality checks (formatting, linting, type checking)
-- Test suite execution
-- Script verification (EDA and preprocessing)
+### Test Coverage
 
-For detailed information about the CI/CD pipeline, see [CI_GUIDE.md](CI_GUIDE.md).
+- **Unit Tests**: `tests/test_data_loader.py`
+- **Smoke Tests**: `tests/test_smoke.py`
+- **CI Integration**: Automated testing on push/PR
 
----
+## 🔄 CI/CD
 
-## 📚 References
+The project uses GitHub Actions for continuous integration:
 
-* **Dataset**: UCI Machine Learning Repository - Bank Marketing
-* **Citation**: Moro, S., Laureano, R., & Cortez, P. (2011). *Using Data Mining for Bank Direct Marketing: An Application of the CRISP-DM Methodology*.
+### CI Pipeline (`.github/workflows/ci.yml`)
 
----
+1. **Code Quality Checks**
+   - Black formatting check
+   - Flake8 linting
+   - Mypy type checking
+
+2. **Test Execution**
+   - Downloads dataset
+   - Runs pytest test suite
+
+3. **Script Verification**
+   - Runs EDA script
+   - Runs preprocessing script
+   - Verifies artifact generation
+
+### Smoke Test Pipeline (`.github/workflows/smoke-test.yml`)
+
+Quick validation pipeline that runs smoke tests on every push/PR.
+
+For detailed CI/CD documentation, see [CI_GUIDE.md](CI_GUIDE.md).
+
+## 🌐 Web Interface
+
+The Streamlit web interface provides an intuitive way to make predictions:
+
+### Features
+
+- **Customer Input Form**: Sidebar with all required features
+- **Multi-Model Predictions**: Predictions from all trained models
+- **Visual Comparisons**: Interactive charts comparing model probabilities
+- **Production Recommendations**: Threshold-based contact recommendations
+- **Model Information**: Detailed descriptions and performance metrics
+
+### Usage
+
+1. Launch the interface: `python run_ui.py`
+2. Fill in customer information in the sidebar
+3. Click "Predict with All Models"
+4. Review predictions and recommendations
+
+### Model Support
+
+The UI automatically loads all available models:
+- Baseline Logistic Regression
+- Random Forest (SMOTE)
+- XGBoost (SMOTE)
+- XGBoost Weighted
+- XGBoost Optimized (SMOTE)
+- Champion Model (Weighted Optimized)
+
+## 📈 WandB Integration
+
+The project includes comprehensive WandB integration for experiment tracking:
+
+### Features
+
+- **Automatic Logging**: Hyperparameters, metrics, and artifacts
+- **Flexible Modes**: Online, offline, or disabled
+- **Model Artifacts**: Automatic model versioning
+- **Visualizations**: Confusion matrices, feature importance, optimization history
+
+### Usage
+
+All training scripts automatically log to WandB. Configure in `config/config.yaml`:
+
+```yaml
+wandb:
+  enabled: true
+  mode: "online"  # or "offline" or set enabled: false
+```
+
+### Viewing Results
+
+- **Online**: View in WandB web interface
+- **Offline**: Check `src/training/wandb/` directory
+
+## 🛠️ Development
+
+### Using Makefile
+
+```bash
+make install      # Install dependencies
+make install-dev  # Install with dev tools
+make run          # Run EDA
+make test         # Run tests
+make clean        # Clean generated files
+make format       # Format code with black
+make lint         # Run linters
+```
+
+### Code Style
+
+- **Formatter**: Black (line length: 100)
+- **Linter**: Flake8
+- **Type Checker**: Mypy
+
+### Adding New Models
+
+1. Create training script in `src/training/`
+2. Use `wandb_utils.py` for consistent logging
+3. Save model to `src/models/`
+4. Add to UI model list in `src/ui/streamlit.py`
+5. Update evaluation scripts if needed
+
+## ⚠️ Important Notes
+
+### Data Leakage Prevention
+
+The `duration` variable is **strictly removed** during preprocessing. This variable represents call duration, which is only known after a call is completed. Including it would create unrealistic performance metrics.
+
+### Model Compatibility
+
+- Models trained with SMOTE are **pipelines** that expect preprocessed input
+- Regular models expect **preprocessed input** (from ColumnTransformer)
+- All models use the same preprocessor saved in `src/models/preprocessor.pkl`
+
+### File Paths
+
+All paths in the project are relative to the project root. Ensure you run commands from the project root directory.
+
+## 🤝 Contributing
+
+Contributions are welcome! Please follow these guidelines:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes
+4. Run tests (`pytest tests/ -v`)
+5. Run code quality checks (`make format lint`)
+6. Commit your changes (`git commit -m 'Add amazing feature'`)
+7. Push to the branch (`git push origin feature/amazing-feature`)
+8. Open a Pull Request
+
+### Development Setup
+
+```bash
+# Clone repository
+git clone <repository-url>
+cd AI-FinalProject-MHM-POWER
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # or venv\Scripts\activate on Windows
+
+# Install dependencies
+pip install -r requirements.txt
+pip install -e .  # Install in development mode
+
+# Run tests
+pytest tests/ -v
+```
 
 ## 📝 License
 
 This project is for educational purposes as part of an AI Final Project.
 
-```
+## 📚 References
+
+### Dataset
+
+- **UCI Machine Learning Repository**: [Bank Marketing Dataset](https://archive.ics.uci.edu/dataset/222/bank+marketing)
+- **Citation**: Moro, S., Laureano, R., & Cortez, P. (2011). *Using Data Mining for Bank Direct Marketing: An Application of the CRISP-DM Methodology*.
+
+### Key Technologies
+
+- **XGBoost**: Chen, T., & Guestrin, C. (2016). XGBoost: A Scalable Tree Boosting System.
+- **SMOTE**: Chawla, N. V., et al. (2002). SMOTE: Synthetic Minority Over-sampling Technique.
+- **Optuna**: Akiba, T., et al. (2019). Optuna: A Next-generation Hyperparameter Optimization Framework.
+- **SHAP**: Lundberg, S. M., & Lee, S. I. (2017). A Unified Approach to Interpreting Model Predictions.
+
+### Documentation
+
+- [Project Structure Guide](docs/PROJECT_STRUCTURE.md)
+- [CI/CD Guide](CI_GUIDE.md)
+- [Quick Start Guide](QUICKSTART.md)
+
+## 🙏 Acknowledgments
+
+- UCI Machine Learning Repository for the dataset
+- Open-source ML community for excellent tools and libraries
+- Project contributors and reviewers
+
+---
+
+**Built with ❤️ using Python, XGBoost, Streamlit, and modern ML best practices.**
+
+For questions or issues, please open an issue on GitHub.

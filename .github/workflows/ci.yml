@@ -25,7 +25,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install pytest black flake8 mypy scikit-learn joblib
+        pip install pytest black flake8 mypy scikit-learn joblib xgboost imbalanced-learn
 
     - name: Check code formatting with black
       run: |
@@ -58,13 +58,18 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install pytest scikit-learn joblib
+        pip install pytest scikit-learn joblib xgboost imbalanced-learn
 
     - name: Download dataset
       run: |
         mkdir -p data/raw/bank
-        wget -O data/raw/bank/bank-full.csv "https://archive.ics.uci.edu/ml/machine-learning-databases/00222/bank-full.csv"
-        wget -O data/raw/bank/bank-names.txt "https://archive.ics.uci.edu/ml/machine-learning-databases/00222/bank-names.txt"
+        wget -O data/raw/bank/bank-full.csv "https://toeflist-bucket.storage.c2.liara.space/bank-full.csv" || exit 1
+        # Verify the file was created
+        if [ ! -f "data/raw/bank/bank-full.csv" ]; then
+          echo "Error: bank-full.csv was not downloaded"
+          exit 1
+        fi
+        echo "Dataset downloaded successfully: $(ls -lh data/raw/bank/bank-full.csv)"
 
     - name: Run tests
       run: |
@@ -89,25 +94,40 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install scikit-learn joblib
+        pip install scikit-learn joblib xgboost imbalanced-learn
 
     - name: Download dataset
       run: |
         mkdir -p data/raw/bank
-        wget -O data/raw/bank/bank-full.csv "https://archive.ics.uci.edu/ml/machine-learning-databases/00222/bank-full.csv"
-        wget -O data/raw/bank/bank-names.txt "https://archive.ics.uci.edu/ml/machine-learning-databases/00222/bank-names.txt"
+        wget -O data/raw/bank/bank-full.csv "https://toeflist-bucket.storage.c2.liara.space/bank-full.csv" || exit 1
+        # Verify the file was created
+        if [ ! -f "data/raw/bank/bank-full.csv" ]; then
+          echo "Error: bank-full.csv was not downloaded"
+          exit 1
+        fi
+        echo "Dataset downloaded successfully: $(ls -lh data/raw/bank/bank-full.csv)"
 
     - name: Run EDA script
       run: |
         python run_eda.py
 
     - name: Run preprocessing script
+      env:
+        WANDB_MODE: offline
       run: |
         python -m src.preprocessing.main
+        
+    - name: Verify preprocessor was saved
+      run: |
+        if [ ! -f "src/models/preprocessor.pkl" ]; then
+          echo "Error: preprocessor.pkl was not saved correctly"
+          exit 1
+        fi
+        echo "Preprocessor saved successfully"
 
     - name: Upload generated artifacts
       if: always()
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: generated-files
         path: |
