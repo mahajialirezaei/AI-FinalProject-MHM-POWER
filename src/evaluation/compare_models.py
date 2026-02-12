@@ -89,7 +89,7 @@ def run_comparison():
     config = load_config()
     thresholds_dict = config.get("model", {}).get("thresholds", {})
     default_threshold = config.get("model", {}).get("threshold", 0.5)
-    
+
     print(f"[INFO] Using model-specific thresholds from Config")
     print(f"[INFO] Default threshold: {default_threshold}")
     if thresholds_dict:
@@ -101,55 +101,55 @@ def run_comparison():
     # --- A. Baseline & Phase 2 Models (Model-Specific Thresholds) ---
     baseline_threshold = thresholds_dict.get("baseline_logreg", default_threshold)
     baseline_metrics = evaluate_model(
-        MODELS_DIR / "baseline_logreg.pkl", 
-        X_val, 
-        y_val, 
+        MODELS_DIR / "baseline_logreg.pkl",
+        X_val,
+        y_val,
         f"Baseline (Thresh={baseline_threshold:.3f})",
-        threshold=baseline_threshold
+        threshold=baseline_threshold,
     )
     if baseline_metrics:
         all_metrics["Baseline"] = baseline_metrics
 
     rf_threshold = thresholds_dict.get("random_forest_model_smote", default_threshold)
     rf_metrics = evaluate_model(
-        MODELS_DIR / "random_forest_model_smote.pkl", 
-        X_val, 
-        y_val, 
+        MODELS_DIR / "random_forest_model_smote.pkl",
+        X_val,
+        y_val,
         f"Random Forest (Thresh={rf_threshold:.3f})",
-        threshold=rf_threshold
+        threshold=rf_threshold,
     )
     if rf_metrics:
         all_metrics["Random Forest"] = rf_metrics
 
     xgb_threshold = thresholds_dict.get("xgboost_model_smote", default_threshold)
     xgb_metrics = evaluate_model(
-        MODELS_DIR / "xgboost_model_smote.pkl", 
-        X_val, 
-        y_val, 
+        MODELS_DIR / "xgboost_model_smote.pkl",
+        X_val,
+        y_val,
         f"XGBoost (Manual) (Thresh={xgb_threshold:.3f})",
-        threshold=xgb_threshold
+        threshold=xgb_threshold,
     )
     if xgb_metrics:
         all_metrics["XGBoost (Manual)"] = xgb_metrics
 
     opt_threshold = thresholds_dict.get("xgboost_optimized", default_threshold)
     opt_metrics = evaluate_model(
-        MODELS_DIR / "xgboost_optimized.pkl", 
-        X_val, 
-        y_val, 
+        MODELS_DIR / "xgboost_optimized.pkl",
+        X_val,
+        y_val,
         f"XGBoost (Optimized) (Thresh={opt_threshold:.3f})",
-        threshold=opt_threshold
+        threshold=opt_threshold,
     )
     if opt_metrics:
         all_metrics["XGBoost (Optimized)"] = opt_metrics
 
     weighted_threshold = thresholds_dict.get("xgboost_weighted", default_threshold)
     weighted_metrics = evaluate_model(
-        MODELS_DIR / "xgboost_weighted.pkl", 
-        X_val, 
-        y_val, 
+        MODELS_DIR / "xgboost_weighted.pkl",
+        X_val,
+        y_val,
         f"XGBoost (Weighted) (Thresh={weighted_threshold:.3f})",
-        threshold=weighted_threshold
+        threshold=weighted_threshold,
     )
     if weighted_metrics:
         all_metrics["XGBoost (Weighted)"] = weighted_metrics
@@ -157,11 +157,11 @@ def run_comparison():
     # --- B. Champion Model (Optimized Threshold) ---
     champion_threshold = thresholds_dict.get("xgboost_weighted_optimized", default_threshold)
     opt_weighted_metrics = evaluate_model(
-        MODELS_DIR / "xgboost_weighted_optimized.pkl", 
-        X_val, 
-        y_val, 
+        MODELS_DIR / "xgboost_weighted_optimized.pkl",
+        X_val,
+        y_val,
         f"Champion (Thresh={champion_threshold:.3f})",
-        threshold=champion_threshold
+        threshold=champion_threshold,
     )
     if opt_weighted_metrics:
         all_metrics["Champion"] = opt_weighted_metrics

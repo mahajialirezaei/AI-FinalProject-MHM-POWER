@@ -388,11 +388,11 @@ if predict_button:
 
         # Get champion model threshold (for display purposes)
         champion_row = results_df[results_df["Model"].str.contains("Champion", na=False)]
-        champion_threshold = (
-            champion_row["Threshold"].values[0] if len(champion_row) > 0 else 0.5
-        )
+        champion_threshold = champion_row["Threshold"].values[0] if len(champion_row) > 0 else 0.5
         champion_prob = (
-            champion_row["Probability"].values[0] if len(champion_row) > 0 else results_df["Probability"].mean()
+            champion_row["Probability"].values[0]
+            if len(champion_row) > 0
+            else results_df["Probability"].mean()
         )
 
         # Main results display
@@ -408,7 +408,11 @@ if predict_button:
             st.metric(
                 "Champion Model",
                 f"{champion_prob:.1%}",
-                delta=f"{champion_prob - champion_threshold:.1%}" if champion_prob >= champion_threshold else None,
+                delta=(
+                    f"{champion_prob - champion_threshold:.1%}"
+                    if champion_prob >= champion_threshold
+                    else None
+                ),
             )
         with col2:
             st.metric("Average Probability", f"{avg_prob:.1%}")
