@@ -84,10 +84,16 @@ def load_config():
     """Load configuration file."""
     try:
         with open(CONFIG_PATH, "r") as f:
-            return yaml.safe_load(f)
+            config = yaml.safe_load(f)
+            # Ensure thresholds dictionary exists
+            if "model" not in config:
+                config["model"] = {}
+            if "thresholds" not in config["model"]:
+                config["model"]["thresholds"] = {}
+            return config
     except Exception as e:
         st.warning(f"Could not load config: {e}")
-        return {"model": {"threshold": 0.5}}
+        return {"model": {"threshold": 0.5, "thresholds": {}}}
 
 
 @st.cache_resource
@@ -113,8 +119,8 @@ def load_preprocessor():
 
 
 @st.cache_resource
-def load_models():
-    """Load all available models."""
+def load_models(config_dict):
+    """Load all available models with their thresholds."""
     models = {}
     model_configs = {
         "baseline_logreg": {
@@ -155,21 +161,28 @@ def load_models():
         },
     }
 
-    for model_key, config in model_configs.items():
-        model_path = MODELS_DIR / config["file"]
+    # Get thresholds from config
+    thresholds_dict = config_dict.get("model", {}).get("thresholds", {})
+    default_threshold = config_dict.get("model", {}).get("threshold", 0.5)
+
+    for model_key, model_config in model_configs.items():
+        model_path = MODELS_DIR / model_config["file"]
         try:
             # Use joblib.load() since models are saved with joblib.dump()
             model = joblib.load(model_path)
+            # Get model-specific threshold, fallback to default
+            model_threshold = thresholds_dict.get(model_key, default_threshold)
             models[model_key] = {
                 "model": model,
-                "name": config["name"],
-                "description": config["description"],
-                "is_pipeline": config["is_pipeline"],
+                "name": model_config["name"],
+                "description": model_config["description"],
+                "is_pipeline": model_config["is_pipeline"],
+                "threshold": model_threshold,
             }
         except FileNotFoundError:
-            st.sidebar.warning(f"⚠️ {config['name']} not found")
+            st.sidebar.warning(f"⚠️ {model_config['name']} not found")
         except Exception as e:
-            st.sidebar.error(f"❌ Error loading {config['name']}: {e}")
+            st.sidebar.error(f"❌ Error loading {model_config['name']}: {e}")
 
     return models
 
@@ -193,7 +206,7 @@ def predict_with_model(model_obj, processed_input, is_pipeline=False):
 # Load assets
 config = load_config()
 preprocessor = load_preprocessor()
-models_dict = load_models()
+models_dict = load_models(config)
 
 # Header
 st.markdown(
@@ -361,6 +374,8 @@ if predict_button:
                         "Model": model_info["name"],
                         "Probability": prob,
                         "Description": model_info["description"],
+                        "Threshold": model_info.get("threshold", 0.5),
+                        "ModelKey": model_key,
                     }
                 )
 
@@ -371,8 +386,14 @@ if predict_button:
         results_df = pd.DataFrame(results)
         results_df = results_df.sort_values(by="Probability", ascending=False)
 
-        # Get production threshold
-        threshold = config.get("model", {}).get("threshold", 0.5)
+        # Get champion model threshold (for display purposes)
+        champion_row = results_df[results_df["Model"].str.contains("Champion", na=False)]
+        champion_threshold = (
+            champion_row["Threshold"].values[0] if len(champion_row) > 0 else 0.5
+        )
+        champion_prob = (
+            champion_row["Probability"].values[0] if len(champion_row) > 0 else results_df["Probability"].mean()
+        )
 
         # Main results display
         st.markdown("## 📊 Prediction Results")
@@ -381,24 +402,20 @@ if predict_button:
         avg_prob = results_df["Probability"].mean()
         max_prob = results_df["Probability"].max()
         min_prob = results_df["Probability"].min()
-        champion_prob = results_df[results_df["Model"].str.contains("Champion", na=False)][
-            "Probability"
-        ].values
-        champion_prob = champion_prob[0] if len(champion_prob) > 0 else avg_prob
 
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.metric(
                 "Champion Model",
                 f"{champion_prob:.1%}",
-                delta=f"{champion_prob - threshold:.1%}" if champion_prob >= threshold else None,
+                delta=f"{champion_prob - champion_threshold:.1%}" if champion_prob >= champion_threshold else None,
             )
         with col2:
             st.metric("Average Probability", f"{avg_prob:.1%}")
         with col3:
             st.metric("Highest Probability", f"{max_prob:.1%}")
         with col4:
-            st.metric("Production Threshold", f"{threshold:.1%}")
+            st.metric("Champion Threshold", f"{champion_threshold:.1%}")
 
         st.markdown("---")
 
@@ -439,12 +456,12 @@ if predict_button:
                 labels={"Probability": "Subscription Probability", "Model": ""},
             )
 
-            # Add threshold line
+            # Add champion threshold line (main reference)
             fig.add_vline(
-                x=threshold,
+                x=champion_threshold,
                 line_dash="dash",
                 line_color="red",
-                annotation_text=f"Threshold ({threshold:.1%})",
+                annotation_text=f"Champion Threshold ({champion_threshold:.1%})",
                 annotation_position="top",
             )
 
@@ -463,43 +480,45 @@ if predict_button:
         st.markdown("### 📋 Detailed Model Information")
 
         for idx, row in results_df.iterrows():
+            model_threshold = row["Threshold"]
             with st.expander(f"{row['Model']} - {row['Probability']:.2%}"):
                 col_info1, col_info2 = st.columns(2)
                 with col_info1:
                     st.write(f"**Description:** {row['Description']}")
                     st.write(f"**Probability:** {row['Probability']:.4f}")
                     st.write(f"**Percentage:** {row['Probability']:.2%}")
+                    st.write(f"**Model Threshold:** {model_threshold:.4f} ({model_threshold:.1%})")
                 with col_info2:
-                    # Decision based on threshold
-                    if row["Probability"] >= threshold:
+                    # Decision based on model-specific threshold
+                    if row["Probability"] >= model_threshold:
                         st.success("✅ **Recommendation:** Contact customer")
                         st.info(
                             f"Probability exceeds threshold by "
-                            f"{(row['Probability'] - threshold):.2%}"
+                            f"{(row['Probability'] - model_threshold):.2%}"
                         )
                     else:
                         st.warning("⚠️ **Recommendation:** Do not contact")
                         st.info(
                             f"Probability below threshold by "
-                            f"{(threshold - row['Probability']):.2%}"
+                            f"{(model_threshold - row['Probability']):.2%}"
                         )
 
         # Final recommendation
         st.markdown("---")
         st.markdown("### 💡 Final Recommendation")
 
-        if champion_prob >= threshold:
+        if champion_prob >= champion_threshold:
             st.success(
                 f"✅ **CONTACT RECOMMENDED**\n\n"
                 f"The Champion Model predicts a {champion_prob:.1%} probability of subscription, "
-                f"which exceeds the production threshold of {threshold:.1%}. "
+                f"which exceeds the production threshold of {champion_threshold:.1%}. "
                 f"It is recommended to contact this customer."
             )
         else:
             st.warning(
                 f"⚠️ **DO NOT CONTACT**\n\n"
                 f"The Champion Model predicts a {champion_prob:.1%} probability of subscription, "
-                f"which is below the production threshold of {threshold:.1%}. "
+                f"which is below the production threshold of {champion_threshold:.1%}. "
                 f"It is not recommended to contact this customer at this time."
             )
 
@@ -511,7 +530,8 @@ if predict_button:
 
         with col_insight1:
             st.markdown("**Model Agreement:**")
-            above_threshold = (results_df["Probability"] >= threshold).sum()
+            # Count models that recommend contact based on their own thresholds
+            above_threshold = (results_df["Probability"] >= results_df["Threshold"]).sum()
             total_models = len(results_df)
             agreement = (above_threshold / total_models) * 100
             st.progress(agreement / 100)

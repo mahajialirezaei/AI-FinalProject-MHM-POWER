@@ -86,8 +86,16 @@ def save_threshold_to_config(threshold, model_rel_path):
     if "model" not in config:
         config["model"] = {}
 
-    config["model"]["threshold"] = float(threshold)
+    config["model"]["threshold"] = float(threshold)  # Keep for backward compatibility
     config["model"]["path"] = str(model_rel_path)
+    
+    # Update thresholds dictionary
+    if "thresholds" not in config["model"]:
+        config["model"]["thresholds"] = {}
+    
+    # Determine model key from path
+    model_filename = Path(model_rel_path).name.replace(".pkl", "")
+    config["model"]["thresholds"][model_filename] = float(threshold)
 
     # 3. Save back to file
     with open(CONFIG_PATH, "w") as f:

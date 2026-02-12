@@ -21,12 +21,18 @@ RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def load_config():
-    """Load project configuration to get the best threshold."""
+    """Load project configuration to get model thresholds."""
     if not CONFIG_PATH.exists():
         print("[WARN] Config file not found. Using default threshold 0.5")
-        return {}
+        return {"model": {"thresholds": {}, "threshold": 0.5}}
     with open(CONFIG_PATH, "r") as f:
-        return yaml.safe_load(f)
+        config = yaml.safe_load(f)
+        # Ensure thresholds dictionary exists
+        if "model" not in config:
+            config["model"] = {}
+        if "thresholds" not in config["model"]:
+            config["model"]["thresholds"] = {}
+        return config
 
 
 def evaluate_model(model_path, X, y, model_name="Model", threshold=None):
@@ -79,60 +85,86 @@ def run_comparison():
         print("Error: Validation data not found.")
         return
 
-    # 2. Get Best Threshold from Config
+    # 2. Get Model Thresholds from Config
     config = load_config()
-    best_threshold = config.get("model", {}).get("threshold", 0.5)
-    print(f"[INFO] Using Production Threshold from Config: {best_threshold}")
+    thresholds_dict = config.get("model", {}).get("thresholds", {})
+    default_threshold = config.get("model", {}).get("threshold", 0.5)
+    
+    print(f"[INFO] Using model-specific thresholds from Config")
+    print(f"[INFO] Default threshold: {default_threshold}")
+    if thresholds_dict:
+        print(f"[INFO] Model thresholds: {thresholds_dict}")
 
-    # 3. Collect Metrics
+    # 3. Collect Metrics with Model-Specific Thresholds
     all_metrics = {}
 
-    # --- A. Baseline & Phase 2 Models (Standard 0.5 Threshold) ---
-    baseline_metrics = evaluate_model(MODELS_DIR / "baseline_logreg.pkl", X_val, y_val, "Baseline")
+    # --- A. Baseline & Phase 2 Models (Model-Specific Thresholds) ---
+    baseline_threshold = thresholds_dict.get("baseline_logreg", default_threshold)
+    baseline_metrics = evaluate_model(
+        MODELS_DIR / "baseline_logreg.pkl", 
+        X_val, 
+        y_val, 
+        f"Baseline (Thresh={baseline_threshold:.3f})",
+        threshold=baseline_threshold
+    )
     if baseline_metrics:
         all_metrics["Baseline"] = baseline_metrics
 
+    rf_threshold = thresholds_dict.get("random_forest_model_smote", default_threshold)
     rf_metrics = evaluate_model(
-        MODELS_DIR / "random_forest_model_smote.pkl", X_val, y_val, "Random Forest"
+        MODELS_DIR / "random_forest_model_smote.pkl", 
+        X_val, 
+        y_val, 
+        f"Random Forest (Thresh={rf_threshold:.3f})",
+        threshold=rf_threshold
     )
     if rf_metrics:
         all_metrics["Random Forest"] = rf_metrics
 
+    xgb_threshold = thresholds_dict.get("xgboost_model_smote", default_threshold)
     xgb_metrics = evaluate_model(
-        MODELS_DIR / "xgboost_model_smote.pkl", X_val, y_val, "XGBoost (Manual)"
+        MODELS_DIR / "xgboost_model_smote.pkl", 
+        X_val, 
+        y_val, 
+        f"XGBoost (Manual) (Thresh={xgb_threshold:.3f})",
+        threshold=xgb_threshold
     )
     if xgb_metrics:
         all_metrics["XGBoost (Manual)"] = xgb_metrics
 
+    opt_threshold = thresholds_dict.get("xgboost_optimized", default_threshold)
     opt_metrics = evaluate_model(
-        MODELS_DIR / "xgboost_optimized.pkl", X_val, y_val, "XGBoost (Optimized)"
+        MODELS_DIR / "xgboost_optimized.pkl", 
+        X_val, 
+        y_val, 
+        f"XGBoost (Optimized) (Thresh={opt_threshold:.3f})",
+        threshold=opt_threshold
     )
     if opt_metrics:
         all_metrics["XGBoost (Optimized)"] = opt_metrics
 
+    weighted_threshold = thresholds_dict.get("xgboost_weighted", default_threshold)
     weighted_metrics = evaluate_model(
-        MODELS_DIR / "xgboost_weighted.pkl", X_val, y_val, "XGBoost (Weighted)"
+        MODELS_DIR / "xgboost_weighted.pkl", 
+        X_val, 
+        y_val, 
+        f"XGBoost (Weighted) (Thresh={weighted_threshold:.3f})",
+        threshold=weighted_threshold
     )
     if weighted_metrics:
         all_metrics["XGBoost (Weighted)"] = weighted_metrics
 
+    # --- B. Champion Model (Optimized Threshold) ---
+    champion_threshold = thresholds_dict.get("xgboost_weighted_optimized", default_threshold)
     opt_weighted_metrics = evaluate_model(
-        MODELS_DIR / "xgboost_weighted_optimized.pkl", X_val, y_val, "XGBoost (Weighted optimized)"
+        MODELS_DIR / "xgboost_weighted_optimized.pkl", 
+        X_val, 
+        y_val, 
+        f"Champion (Thresh={champion_threshold:.3f})",
+        threshold=champion_threshold
     )
     if opt_weighted_metrics:
-        all_metrics["XGBoost (Weighted optimized)"] = opt_weighted_metrics
-
-    # --- B. Production Model (Custom Threshold) ---
-    # We evaluate the Weighted Optimized model AGAIN, but with the specific threshold
-    prod_metrics = evaluate_model(
-        MODELS_DIR / "xgboost_weighted_optimized.pkl",
-        X_val,
-        y_val,
-        f"Production (Thresh={best_threshold})",
-        threshold=best_threshold,
-    )
-    if prod_metrics:
-        all_metrics["Production (Best)"] = prod_metrics
+        all_metrics["Champion"] = opt_weighted_metrics
 
     # 4. Generate DataFrame and Plot
     if not all_metrics:
@@ -158,8 +190,10 @@ def run_comparison():
     # 1. Capture the axes object 'ax'
     ax = sns.barplot(data=df_melted, x="Metric", y="Score", hue="Model", palette="viridis")
 
+    # Get champion threshold for title
+    champion_threshold = thresholds_dict.get("xgboost_weighted_optimized", default_threshold)
     plt.title(
-        f"Impact of Optimization & Threshold Tuning (Best Thresh={best_threshold})",
+        f"Model Comparison with Model-Specific Thresholds (Champion Thresh={champion_threshold:.3f})",
         fontsize=14,
         fontweight="bold",
     )
