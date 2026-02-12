@@ -137,7 +137,7 @@ jobs:
         
     - name: Verify preprocessor was saved
       run: |
-        if [ ! -f "src/preprocessing/preprocessor.pkl" ]; then
+        if [ ! -f "src/models/preprocessor.pkl" ]; then
           echo "Error: preprocessor.pkl was not saved correctly"
           exit 1
         fi

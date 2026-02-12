@@ -9,10 +9,8 @@ services:
     ports:
       - "8501:8501"
     volumes:
-      # Mount models directory (if models exist locally)
+      # Mount models directory (contains all models and preprocessor)
       - ./src/models:/app/src/models:ro
-      # Mount preprocessor (if it exists locally)
-      - ./src/preprocessing:/app/src/preprocessing:ro
       # Mount config (for easy updates)
       - ./config:/app/config:ro
     environment:

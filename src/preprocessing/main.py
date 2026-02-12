@@ -95,9 +95,10 @@ def load_and_preprocess_data(raw_filepath, processed_dir):
     print(f"Val shape: {val_df.shape}")
     print(f"Test shape: {test_df.shape}")
 
-    # Save preprocessor to src/preprocessing/ directory
-    preprocessor_dir = Path(__file__).parent
-    preprocessor_path = preprocessor_dir / "preprocessor.pkl"
+    # Save preprocessor to src/models/ directory (standardized location)
+    models_dir = Path(__file__).parent.parent / "models"
+    models_dir.mkdir(exist_ok=True)
+    preprocessor_path = models_dir / "preprocessor.pkl"
     with open(preprocessor_path, "wb") as f:
         pickle.dump(preprocessor, f)
     print(f"Preprocessor saved to {preprocessor_path}")

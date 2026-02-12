@@ -44,15 +44,9 @@ env/
 /data/processed/*.pkl
 /data/processed/*.parquet
 
-# Model files (should be mounted or copied separately)
-# Uncomment if you want to exclude models from image
-# /src/models/*.pkl
-# /src/models/*.joblib
-
-# Preprocessor files (should be mounted or copied separately)
-# Uncomment if you want to exclude preprocessor from image
-# /src/preprocessing/*.pkl
-# /src/preprocessing/*.joblib
+# Model files (should be mounted as volumes, not built into image)
+/src/models/*.pkl
+/src/models/*.joblib
 
 # Reports and figures (generated files)
 /reports/figures/*.png

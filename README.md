@@ -136,7 +136,7 @@ This generates visualizations in `reports/figures/` and displays statistics in t
 python -m src.preprocessing.main
 ```
 
-This creates train/val/test splits and saves the preprocessor to `src/preprocessing/preprocessor.pkl`.
+This creates train/val/test splits and saves the preprocessor to `src/models/preprocessor.pkl`.
 
 ### 3. Train Baseline Model
 
@@ -149,7 +149,7 @@ python -m src.training.train_baseline
 ```bash
 python run_ui.py
 # or
-streamlit run src/ui/stramlit.py
+streamlit run src/ui/streamlit.py
 ```
 
 The interface will open in your default browser at `http://localhost:8501`.
@@ -179,7 +179,7 @@ AI-FinalProject-MHM-POWER/
 │   │
 │   ├── preprocessing/               # Data preprocessing
 │   │   ├── main.py                 # Preprocessing pipeline
-│   │   └── preprocessor.pkl        # Saved preprocessor
+│   │   ├── *.pkl                   # Trained models and preprocessor
 │   │
 │   ├── training/                    # Model training scripts
 │   │   ├── train_baseline.py       # Logistic Regression baseline
@@ -205,7 +205,7 @@ AI-FinalProject-MHM-POWER/
 │   │   └── xgboost_weighted_optimized.pkl  # Champion Model
 │   │
 │   └── ui/                          # Web interface
-│       └── stramlit.py             # Streamlit application
+│       └── streamlit.py             # Streamlit application
 │
 ├── results/                         # Evaluation results
 │   ├── charts/                     # Performance plots
@@ -260,7 +260,7 @@ python -m src.preprocessing.main
 
 **Output**:
 - Processed train/val/test splits in `data/processed/`
-- Preprocessor saved to `src/preprocessing/preprocessor.pkl`
+- Preprocessor saved to `src/models/preprocessor.pkl`
 
 **Features**:
 - Removes `duration` variable (data leakage prevention)
@@ -544,7 +544,7 @@ make lint         # Run linters
 1. Create training script in `src/training/`
 2. Use `wandb_utils.py` for consistent logging
 3. Save model to `src/models/`
-4. Add to UI model list in `src/ui/stramlit.py`
+4. Add to UI model list in `src/ui/streamlit.py`
 5. Update evaluation scripts if needed
 
 ## ⚠️ Important Notes
@@ -557,7 +557,7 @@ The `duration` variable is **strictly removed** during preprocessing. This varia
 
 - Models trained with SMOTE are **pipelines** that expect preprocessed input
 - Regular models expect **preprocessed input** (from ColumnTransformer)
-- All models use the same preprocessor saved in `src/preprocessing/preprocessor.pkl`
+- All models use the same preprocessor saved in `src/models/preprocessor.pkl`
 
 ### File Paths
 

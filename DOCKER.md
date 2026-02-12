@@ -38,7 +38,6 @@ docker run -d \
   --name bank-marketing-predictor \
   -p 8501:8501 \
   -v $(pwd)/src/models:/app/src/models:ro \
-  -v $(pwd)/src/preprocessing:/app/src/preprocessing:ro \
   -v $(pwd)/config:/app/config:ro \
   bank-marketing-ui
 
@@ -56,7 +55,7 @@ docker rm bank-marketing-predictor
 
 The Docker container expects:
 - **Models**: Located in `src/models/*.pkl` (mounted as read-only volume)
-- **Preprocessor**: Located in `src/preprocessing/preprocessor.pkl` (mounted as read-only volume)
+- **Preprocessor**: Located in `src/models/preprocessor.pkl` (mounted as read-only volume)
 - **Config**: Located in `config/config.yaml` (mounted as read-only volume)
 
 If you haven't trained models yet, you need to:
@@ -76,8 +75,7 @@ If you haven't trained models yet, you need to:
 ### Volume Mounts
 
 The docker-compose.yml mounts these directories as volumes:
-- `./src/models` → Contains trained model files (.pkl)
-- `./src/preprocessing` → Contains preprocessor.pkl
+- `./src/models` → Contains all model files (.pkl) including preprocessor.pkl
 - `./config` → Contains config.yaml
 
 This allows you to:
@@ -158,7 +156,7 @@ environment:
    python -m src.preprocessing.main
    ```
 
-2. Verify `src/preprocessing/preprocessor.pkl` exists
+2. Verify `src/models/preprocessor.pkl` exists
 
 ## Production Deployment
 

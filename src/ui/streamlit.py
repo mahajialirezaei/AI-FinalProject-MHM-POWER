@@ -75,7 +75,7 @@ st.markdown(
 # Get project root
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 MODELS_DIR = PROJECT_ROOT / "src" / "models"
-PREPROCESSOR_PATH = PROJECT_ROOT / "src" / "preprocessing" / "preprocessor.pkl"
+PREPROCESSOR_PATH = PROJECT_ROOT / "src" / "models" / "preprocessor.pkl"
 CONFIG_PATH = PROJECT_ROOT / "config" / "config.yaml"
 
 

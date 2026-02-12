@@ -10,7 +10,7 @@ from pathlib import Path
 if __name__ == "__main__":
     # Get the UI file path
     project_root = Path(__file__).parent
-    ui_file = project_root / "src" / "ui" / "stramlit.py"
+    ui_file = project_root / "src" / "ui" / "streamlit.py"
     
     if not ui_file.exists():
         print(f"Error: UI file not found at {ui_file}")
