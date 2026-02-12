@@ -11,6 +11,12 @@ import numpy as np
 import plotly.express as px
 from pathlib import Path
 import yaml
+import shap
+import matplotlib.pyplot as plt
+import warnings
+
+# Suppress SHAP warnings for cleaner output
+warnings.filterwarnings("ignore", category=UserWarning, module="shap")
 
 # Page configuration
 st.set_page_config(
@@ -77,6 +83,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 MODELS_DIR = PROJECT_ROOT / "src" / "models"
 PREPROCESSOR_PATH = PROJECT_ROOT / "src" / "models" / "preprocessor.pkl"
 CONFIG_PATH = PROJECT_ROOT / "config" / "config.yaml"
+DATA_PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 
 
 @st.cache_resource
@@ -200,6 +207,181 @@ def predict_with_model(model_obj, processed_input, is_pipeline=False):
         return prob
     except Exception as e:
         st.error(f"Prediction error: {e}")
+        return None
+
+
+@st.cache_resource
+def load_background_data(n_samples=100):
+    """Load background dataset for SHAP explainer (sampled from test set)."""
+    try:
+        test_path = DATA_PROCESSED_DIR / "test.csv"
+        if not test_path.exists():
+            return None
+        
+        test_df = pd.read_csv(test_path)
+        
+        # Check if target column exists
+        if "target" not in test_df.columns:
+            return None
+        
+        X_test = test_df.drop(columns=["target"])
+        
+        # Validate data
+        if X_test.empty:
+            return None
+        
+        # Sample background data (SHAP works better with smaller background sets)
+        if len(X_test) > n_samples:
+            background_data = X_test.sample(n=min(n_samples, len(X_test)), random_state=42)
+        else:
+            background_data = X_test
+        
+        return background_data.values
+    except FileNotFoundError:
+        return None
+    except Exception as e:
+        # Silently return None - error will be handled in UI
+        return None
+
+
+@st.cache_resource
+def load_shap_explainer(_model, background_data):
+    """Create and cache SHAP explainer for the champion model.
+    
+    Note: _model is prefixed with underscore to exclude it from Streamlit's hashing,
+    since XGBoost models are not hashable. The explainer is cached based on background_data.
+    """
+    try:
+        # Check if model is XGBoost (TreeExplainer works best with tree models)
+        model_type = type(_model).__name__
+        
+        if background_data is None:
+            # If no background data, use TreeExplainer without background
+            explainer = shap.TreeExplainer(_model)
+        else:
+            # Use background data for more accurate SHAP values
+            # Ensure background_data is numpy array
+            if isinstance(background_data, pd.DataFrame):
+                background_data = background_data.values
+            explainer = shap.TreeExplainer(_model, background_data)
+        return explainer
+    except AttributeError:
+        # Model might not support TreeExplainer
+        return None
+    except Exception:
+        # Silently return None - error will be handled in UI
+        return None
+
+
+def calculate_shap_values(explainer, processed_input):
+    """Calculate SHAP values for a single prediction."""
+    try:
+        # Ensure processed_input is numpy array
+        if isinstance(processed_input, pd.DataFrame):
+            processed_input = processed_input.values
+        elif not isinstance(processed_input, np.ndarray):
+            processed_input = np.array(processed_input)
+        
+        # Ensure 2D array
+        if processed_input.ndim == 1:
+            processed_input = processed_input.reshape(1, -1)
+        
+        # For TreeExplainer, shap_values returns array of shape (n_samples, n_features)
+        shap_values = explainer.shap_values(processed_input)
+        
+        # Handle binary classification - get values for positive class
+        if isinstance(shap_values, list):
+            shap_values = shap_values[1]  # Positive class
+        
+        expected_value = explainer.expected_value
+        # Handle binary classification expected value
+        if isinstance(expected_value, np.ndarray) and len(expected_value) > 1:
+            expected_value = expected_value[1]  # Positive class
+        
+        return shap_values[0], expected_value  # Return first (and only) sample
+    except Exception:
+        # Return None on any error - will be handled in UI
+        return None, None
+
+
+def plot_shap_waterfall(explainer, shap_values, expected_value, feature_names, processed_input):
+    """Create SHAP waterfall plot for local explanation."""
+    try:
+        # Ensure processed_input is numpy array
+        if isinstance(processed_input, pd.DataFrame):
+            data_values = processed_input.values[0]
+        elif isinstance(processed_input, np.ndarray):
+            data_values = processed_input[0] if processed_input.ndim > 1 else processed_input
+        else:
+            data_values = np.array(processed_input)[0]
+        
+        # Ensure shap_values is 1D array
+        if isinstance(shap_values, np.ndarray) and shap_values.ndim > 1:
+            shap_values = shap_values[0]
+        
+        # Create SHAP Explanation object for waterfall plot
+        shap_explanation = shap.Explanation(
+            values=shap_values.reshape(1, -1),
+            base_values=np.array([expected_value]),
+            data=data_values.reshape(1, -1),
+            feature_names=list(feature_names)
+        )
+        
+        # Use waterfall plot (best for single prediction)
+        fig, ax = plt.subplots(figsize=(10, 8))
+        shap.plots.waterfall(shap_explanation[0], show=False)
+        plt.tight_layout()
+        return fig
+    except Exception:
+        # Fallback to bar plot if waterfall fails
+        try:
+            # Ensure processed_input is numpy array
+            if isinstance(processed_input, pd.DataFrame):
+                data_values = processed_input.values[0]
+            elif isinstance(processed_input, np.ndarray):
+                data_values = processed_input[0] if processed_input.ndim > 1 else processed_input
+            else:
+                data_values = np.array(processed_input)[0]
+            
+            # Ensure shap_values is 1D array
+            if isinstance(shap_values, np.ndarray) and shap_values.ndim > 1:
+                shap_values = shap_values[0]
+            
+            shap_explanation = shap.Explanation(
+                values=shap_values.reshape(1, -1),
+                base_values=np.array([expected_value]),
+                data=data_values.reshape(1, -1),
+                feature_names=list(feature_names)
+            )
+            
+            fig, ax = plt.subplots(figsize=(10, 8))
+            shap.plots.bar(shap_explanation[0], show=False)
+            plt.tight_layout()
+            return fig
+        except Exception:
+            return None
+
+
+def plot_shap_summary(shap_values_all, feature_names):
+    """Create SHAP summary bar plot for global feature importance."""
+    try:
+        # Calculate mean absolute SHAP values for feature importance
+        mean_shap = np.abs(shap_values_all).mean(axis=0)
+        
+        # Create bar plot
+        fig, ax = plt.subplots(figsize=(10, 8))
+        feature_importance_df = pd.DataFrame({
+            'Feature': feature_names,
+            'Importance': mean_shap
+        }).sort_values('Importance', ascending=True).tail(15)  # Top 15 features
+        
+        ax.barh(feature_importance_df['Feature'], feature_importance_df['Importance'])
+        ax.set_xlabel('Mean |SHAP Value|', fontsize=12)
+        ax.set_title('Global Feature Importance (SHAP)', fontsize=14, fontweight='bold')
+        plt.tight_layout()
+        return fig
+    except Exception as e:
+        st.warning(f"Could not create SHAP summary plot: {e}")
         return None
 
 
@@ -550,6 +732,168 @@ if predict_button:
                 f"Lowest: {min_prob:.2%} | Highest: {max_prob:.2%} | "
                 f"Spread: {(max_prob - min_prob):.2%}"
             )
+
+        # SHAP Explainability Section
+        st.markdown("---")
+        st.markdown("### 🔍 Model Explanation (SHAP)")
+        st.info(
+            "SHAP (SHapley Additive exPlanations) shows how each feature contributes to this prediction. "
+            "Positive values push toward subscription, negative values push away."
+        )
+        
+        # Check if champion model exists
+        champion_model_key = None
+        champion_model_obj = None
+        for model_key, model_info in models_dict.items():
+            if "Champion" in model_info["name"] or model_key == "xgboost_weighted_optimized":
+                champion_model_key = model_key
+                champion_model_obj = model_info["model"]
+                break
+        
+        if champion_model_obj is not None:
+            # Load background data
+            background_data = load_background_data(n_samples=100)
+            
+            # Create SHAP explainer
+            explainer = load_shap_explainer(champion_model_obj, background_data)
+            
+            if explainer is not None:
+                # Calculate SHAP values
+                shap_values, expected_value = calculate_shap_values(explainer, processed_input)
+                
+                if shap_values is not None and expected_value is not None:
+                    # Get feature names from preprocessor
+                    feature_names = preprocessor.get_feature_names_out()
+                    
+                    # Create tabs for different visualizations
+                    tab1, tab2, tab3 = st.tabs(["📊 Local Explanation", "📈 Feature Contributions", "🌐 Global Importance"])
+                    
+                    with tab1:
+                        st.markdown("#### Waterfall Plot - Why This Prediction?")
+                        st.caption(
+                            "This shows how each feature moves the prediction from the base value "
+                            f"({expected_value:.4f}) to the final prediction ({champion_prob:.4f})"
+                        )
+                        
+                        # Create waterfall plot
+                        waterfall_fig = plot_shap_waterfall(
+                            explainer, shap_values, expected_value, feature_names, processed_input
+                        )
+                        
+                        if waterfall_fig is not None:
+                            st.pyplot(waterfall_fig)
+                            plt.close()
+                        else:
+                            st.warning("Could not generate waterfall plot. Showing feature contributions instead.")
+                            # Fallback: show feature contributions table
+                            # Ensure processed_input is numpy array
+                            if isinstance(processed_input, np.ndarray):
+                                feature_values = processed_input[0] if processed_input.ndim > 1 else processed_input
+                            else:
+                                feature_values = np.array(processed_input)[0]
+                            
+                            contrib_df = pd.DataFrame({
+                                'Feature': feature_names,
+                                'SHAP Value': shap_values,
+                                'Feature Value': feature_values
+                            })
+                            contrib_df['Contribution'] = contrib_df['SHAP Value'].apply(
+                                lambda x: '📈 Increases' if x > 0 else '📉 Decreases'
+                            )
+                            contrib_df = contrib_df.sort_values('SHAP Value', key=abs, ascending=False).head(15)
+                            st.dataframe(contrib_df[['Feature', 'SHAP Value', 'Feature Value', 'Contribution']], 
+                                       use_container_width=True)
+                    
+                    with tab2:
+                        st.markdown("#### Feature Contribution Table")
+                        st.caption("Top features contributing to this prediction, sorted by absolute impact")
+                        
+                        # Create feature contribution dataframe
+                        # Ensure processed_input is numpy array
+                        if isinstance(processed_input, np.ndarray):
+                            feature_values = processed_input[0] if processed_input.ndim > 1 else processed_input
+                        else:
+                            feature_values = np.array(processed_input)[0]
+                        
+                        contrib_df = pd.DataFrame({
+                            'Feature': feature_names,
+                            'SHAP Value': shap_values,
+                            'Feature Value': feature_values,
+                            '|SHAP Value|': np.abs(shap_values)
+                        })
+                        
+                        # Sort by absolute SHAP value
+                        contrib_df = contrib_df.sort_values('|SHAP Value|', ascending=False).head(20)
+                        
+                        # Add color coding
+                        def color_shap_value(val):
+                            if val > 0:
+                                return 'background-color: #d4edda; color: #155724'  # Green for positive
+                            else:
+                                return 'background-color: #f8d7da; color: #721c24'  # Red for negative
+                        
+                        styled_df = contrib_df[['Feature', 'SHAP Value', 'Feature Value']].style.applymap(
+                            color_shap_value, subset=['SHAP Value']
+                        )
+                        
+                        st.dataframe(styled_df, use_container_width=True, hide_index=True)
+                        
+                        # Summary statistics
+                        col_sum1, col_sum2, col_sum3 = st.columns(3)
+                        with col_sum1:
+                            positive_contrib = (shap_values > 0).sum()
+                            st.metric("Features Increasing Probability", positive_contrib)
+                        with col_sum2:
+                            negative_contrib = (shap_values < 0).sum()
+                            st.metric("Features Decreasing Probability", negative_contrib)
+                        with col_sum3:
+                            total_impact = shap_values.sum()
+                            st.metric("Net SHAP Impact", f"{total_impact:.4f}")
+                    
+                    with tab3:
+                        st.markdown("#### Global Feature Importance")
+                        st.caption("Average feature importance across all predictions (from test set)")
+                        
+                        # Load test data for global importance
+                        try:
+                            test_path = DATA_PROCESSED_DIR / "test.csv"
+                            if test_path.exists():
+                                test_df = pd.read_csv(test_path)
+                                X_test = test_df.drop(columns=["target"]).values
+                                
+                                # Sample for faster computation
+                                if len(X_test) > 500:
+                                    X_test_sample = X_test[:500]
+                                else:
+                                    X_test_sample = X_test
+                                
+                                # Calculate SHAP values for sample
+                                shap_values_all = explainer.shap_values(X_test_sample)
+                                if isinstance(shap_values_all, list):
+                                    shap_values_all = shap_values_all[1]  # Positive class
+                                
+                                # Create summary plot
+                                summary_fig = plot_shap_summary(shap_values_all, feature_names)
+                                
+                                if summary_fig is not None:
+                                    st.pyplot(summary_fig)
+                                    plt.close()
+                                else:
+                                    st.info("Global importance plot not available. Use local explanation instead.")
+                            else:
+                                st.info("Test data not found. Global importance requires test.csv")
+                        except Exception as e:
+                            st.warning(f"Could not generate global importance: {e}")
+                            st.info("Use the Local Explanation tab for feature importance analysis.")
+                else:
+                    st.warning("⚠️ Could not calculate SHAP values.")
+                    st.info("This may occur if the model structure is incompatible or input format is incorrect.")
+            else:
+                st.warning("⚠️ Could not create SHAP explainer.")
+                st.info("SHAP explanations require a tree-based model (XGBoost). Ensure the champion model is loaded correctly.")
+        else:
+            st.warning("⚠️ Champion model not found.")
+            st.info("SHAP explanations require the champion model (xgboost_weighted_optimized.pkl). Please train the model first.")
 
     except Exception as e:
         st.error(f"❌ Error during prediction: {e}")
