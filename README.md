@@ -171,6 +171,8 @@ AI-FinalProject-MHM-POWER/
 │       ├── val.csv
 │       └── test.csv
 │
+├── docs/  
+│   └── AI_FinalProject_Report.pdf
 ├── src/                             # Source code
 │   ├── eda/                         # Exploratory Data Analysis
 │   │   ├── data_loader.py          # Data loading utilities
