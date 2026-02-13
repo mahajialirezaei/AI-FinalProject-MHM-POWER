@@ -13,8 +13,8 @@ long_description = readme_file.read_text() if readme_file.exists() else ""
 requirements_file = Path(__file__).parent / "requirements.txt"
 requirements = []
 if requirements_file.exists():
-    with open(requirements_file, 'r') as f:
-        requirements = [line.strip() for line in f if line.strip() and not line.startswith('#')]
+    with open(requirements_file, "r") as f:
+        requirements = [line.strip() for line in f if line.strip() and not line.startswith("#")]
 
 setup(
     name="bank-marketing-eda",
@@ -27,8 +27,8 @@ setup(
     python_requires=">=3.7",
     install_requires=requirements,
     entry_points={
-        'console_scripts': [
-            'run-eda=src.eda.main:main',
+        "console_scripts": [
+            "run-eda=src.eda.main:main",
         ],
     },
     classifiers=[
@@ -43,4 +43,3 @@ setup(
         "Programming Language :: Python :: 3.12",
     ],
 )
-
