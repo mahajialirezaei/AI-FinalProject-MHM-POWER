@@ -31,7 +31,6 @@ def evaluate_models():
         if model_file == 'preprocessor.pkl':
             continue
 
-
         model_name = model_file.replace(".pkl", "")
         print(f"Evaluating: {model_name}...")
 
