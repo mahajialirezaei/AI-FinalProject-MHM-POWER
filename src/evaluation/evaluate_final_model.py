@@ -28,7 +28,7 @@ def evaluate_models():
     results = []
 
     for model_file in model_files:
-        if model_file == 'preprocessor.pkl':
+        if model_file == "preprocessor.pkl":
             continue
 
         model_name = model_file.replace(".pkl", "")
