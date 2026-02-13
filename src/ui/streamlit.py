@@ -21,119 +21,150 @@ warnings.filterwarnings("ignore", category=UserWarning, module="shap")
 # Fix for SHAP XGBoost base_score parsing issue (XGBoost 3.1.0+ compatibility)
 # This patches SHAP's XGBTreeModelLoader to handle base_score stored as string array '[5E-1]'
 try:
-    import shap
-    if hasattr(shap.explainers._tree, 'XGBTreeModelLoader'):
+    if hasattr(shap.explainers._tree, "XGBTreeModelLoader"):
         XGBTreeModelLoader = shap.explainers._tree.XGBTreeModelLoader
-        
+
         # Store original __init__ if not already patched
-        if not hasattr(XGBTreeModelLoader, '_original_init'):
+        if not hasattr(XGBTreeModelLoader, "_original_init"):
             XGBTreeModelLoader._original_init = XGBTreeModelLoader.__init__
-            
+
             def patched_xgb_init(self, model):
-                """Patched XGBTreeModelLoader init to fix base_score parsing for XGBoost 3.1.0+ compatibility."""
+                """Patched XGBTreeModelLoader init to fix base_score parsing.
+
+                Fixes XGBoost 3.1.0+ compatibility issue.
+                """
                 # The issue: XGBoost 3.1.0+ stores base_score as '[5E-1]' instead of '0.5'
-                # SHAP's code at line 2104 does: self.base_score = float(learner_model_param["base_score"])
+                # SHAP's code at line 2104 does:
+                #   self.base_score = float(learner_model_param["base_score"])
                 # This fails because float('[5E-1]') raises ValueError
-                # Solution: Fix the booster config BEFORE calling original_init, ensuring the fix persists
-                
+                # Solution: Fix the booster config BEFORE calling original_init,
+                # ensuring the fix persists
+
                 import xgboost as xgb
                 import json as json_lib
                 import tempfile
                 import os
-                
+
                 # Get the booster
                 if isinstance(model, xgb.core.Booster):
                     booster = model
-                elif hasattr(model, 'get_booster'):
+                elif hasattr(model, "get_booster"):
                     booster = model.get_booster()
                 else:
                     # Fallback: try original init
                     XGBTreeModelLoader._original_init(self, model)
                     return
-                
+
                 # Check and fix base_score BEFORE SHAP reads it
                 config = booster.save_config()
                 config_dict = json_lib.loads(config)
-                
+
                 base_score_needs_fix = False
                 base_score_float = None
-                
-                if 'learner' in config_dict and 'learner_model_param' in config_dict['learner']:
-                    base_score_param = config_dict['learner']['learner_model_param'].get('base_score', None)
-                    if isinstance(base_score_param, str) and base_score_param.startswith('['):
+
+                if "learner" in config_dict and "learner_model_param" in config_dict["learner"]:
+                    base_score_param = config_dict["learner"]["learner_model_param"].get(
+                        "base_score", None
+                    )
+                    if isinstance(base_score_param, str) and base_score_param.startswith("["):
                         # Fix it: '[5E-1]' -> '0.5'
-                        base_score_str = base_score_param.strip('[]')
+                        base_score_str = base_score_param.strip("[]")
                         base_score_float = float(base_score_str)
-                        config_dict['learner']['learner_model_param']['base_score'] = str(base_score_float)
+                        config_dict["learner"]["learner_model_param"]["base_score"] = str(
+                            base_score_float
+                        )
                         base_score_needs_fix = True
-                
+
                 # If base_score needs fixing, create a new booster with the fixed config
                 if base_score_needs_fix:
                     # Save the model (trees) to a temp file
-                    with tempfile.NamedTemporaryFile(suffix='.ubj', delete=False) as model_file:
+                    with tempfile.NamedTemporaryFile(suffix=".ubj", delete=False) as model_file:
                         booster.save_model(model_file.name)
                         model_path = model_file.name
-                    
+
                     try:
                         # Create a completely new booster
                         new_booster = xgb.Booster()
-                        
+
                         # Load the model first (this loads the tree structure)
                         new_booster.load_model(model_path)
-                        
+
                         # Now load the FIXED config - this should set base_score correctly
                         # The key is to load config AFTER loading the model
                         new_booster.load_config(json_lib.dumps(config_dict))
-                        
+
                         # Verify the fix was applied
                         verify_config = new_booster.save_config()
                         verify_dict = json_lib.loads(verify_config)
-                        verify_base = verify_dict.get('learner', {}).get('learner_model_param', {}).get('base_score', '')
-                        
+                        verify_base = (
+                            verify_dict.get("learner", {})
+                            .get("learner_model_param", {})
+                            .get("base_score", "")
+                        )
+
                         # If verification shows it's still wrong, force reload config again
-                        if isinstance(verify_base, str) and verify_base.startswith('['):
+                        if isinstance(verify_base, str) and verify_base.startswith("["):
                             # Config was overwritten by model load - reload it
                             new_booster.load_config(json_lib.dumps(config_dict))
                             # Verify again
                             verify_config2 = new_booster.save_config()
                             verify_dict2 = json_lib.loads(verify_config2)
-                            verify_base2 = verify_dict2.get('learner', {}).get('learner_model_param', {}).get('base_score', '')
-                            
+                            verify_base2 = (
+                                verify_dict2.get("learner", {})
+                                .get("learner_model_param", {})
+                                .get("base_score", "")
+                            )
+
                             # If still wrong, patch save_config to always return fixed config
-                            if isinstance(verify_base2, str) and verify_base2.startswith('['):
+                            if isinstance(verify_base2, str) and verify_base2.startswith("["):
                                 original_save = new_booster.save_config
+
                                 def fixed_save_config():
                                     cfg = json_lib.loads(original_save())
-                                    if 'learner' in cfg and 'learner_model_param' in cfg['learner']:
-                                        cfg['learner']['learner_model_param']['base_score'] = str(base_score_float)
+                                    if "learner" in cfg and "learner_model_param" in cfg["learner"]:
+                                        cfg["learner"]["learner_model_param"]["base_score"] = str(
+                                            base_score_float
+                                        )
                                     return json_lib.dumps(cfg)
+
                                 new_booster.save_config = fixed_save_config
-                        
+
                         # Use the fixed booster
                         booster = new_booster
                     finally:
                         try:
                             os.unlink(model_path)
-                        except:
+                        except Exception:
                             pass
-                
+
                 # As a final safety net, patch save_config to always return fixed config
-                # This ensures that even if SHAP reads config multiple times, it gets the fixed version
+                # This ensures that even if SHAP reads config multiple times,
+                # it gets the fixed version
                 original_save_config_restore = None
                 if base_score_needs_fix and base_score_float is not None:
                     original_save_config_restore = booster.save_config
+
                     def patched_save_config():
                         """Patched save_config that always returns fixed base_score."""
                         config_str = original_save_config_restore()
                         config_dict = json_lib.loads(config_str)
-                        if 'learner' in config_dict and 'learner_model_param' in config_dict['learner']:
-                            base_score_param = config_dict['learner']['learner_model_param'].get('base_score', None)
-                            if isinstance(base_score_param, str) and base_score_param.startswith('['):
-                                config_dict['learner']['learner_model_param']['base_score'] = str(base_score_float)
+                        if (
+                            "learner" in config_dict
+                            and "learner_model_param" in config_dict["learner"]
+                        ):
+                            base_score_param = config_dict["learner"]["learner_model_param"].get(
+                                "base_score", None
+                            )
+                            if isinstance(base_score_param, str) and base_score_param.startswith(
+                                "["
+                            ):
+                                config_dict["learner"]["learner_model_param"]["base_score"] = str(
+                                    base_score_float
+                                )
                         return json_lib.dumps(config_dict)
-                    
+
                     booster.save_config = patched_save_config
-                
+
                 # Now call original init with the (possibly fixed) booster
                 try:
                     XGBTreeModelLoader._original_init(self, booster)
@@ -141,7 +172,7 @@ try:
                     # Restore original save_config if we patched it
                     if original_save_config_restore is not None:
                         booster.save_config = original_save_config_restore
-            
+
             XGBTreeModelLoader.__init__ = patched_xgb_init
 except Exception:
     # If patching fails, continue anyway - will try other fixes
@@ -152,35 +183,35 @@ except Exception:
 # which can occur due to scikit-learn version mismatches
 try:
     from sklearn.linear_model import LogisticRegression
-    
+
     # Store original methods if not already patched
-    if not hasattr(LogisticRegression, '_original_getattribute'):
+    if not hasattr(LogisticRegression, "_original_getattribute"):
         LogisticRegression._original_getattribute = LogisticRegression.__getattribute__
-        
+
         def _patched_getattribute(self, name):
             """Patched __getattribute__ to handle missing multi_class attribute."""
-            if name == 'multi_class':
+            if name == "multi_class":
                 # Check if attribute exists in instance dict
-                if 'multi_class' not in self.__dict__:
+                if "multi_class" not in self.__dict__:
                     # Set default value for binary classification
-                    self.__dict__['multi_class'] = 'auto'
+                    self.__dict__["multi_class"] = "auto"
             # Call original getattribute
             return LogisticRegression._original_getattribute(self, name)
-        
+
         LogisticRegression.__getattribute__ = _patched_getattribute
-        
+
         # Also patch __setstate__ to handle unpickling
-        if hasattr(LogisticRegression, '__setstate__'):
+        if hasattr(LogisticRegression, "__setstate__"):
             LogisticRegression._original_setstate = LogisticRegression.__setstate__
-            
+
             def _patched_setstate(self, state):
                 """Patched __setstate__ to ensure multi_class exists after unpickling."""
                 # Call original setstate
                 LogisticRegression._original_setstate(self, state)
                 # Ensure multi_class exists
-                if 'multi_class' not in self.__dict__:
-                    self.__dict__['multi_class'] = state.get('multi_class', 'auto')
-            
+                if "multi_class" not in self.__dict__:
+                    self.__dict__["multi_class"] = state.get("multi_class", "auto")
+
             LogisticRegression.__setstate__ = _patched_setstate
 except Exception:
     # If patching fails, continue anyway - models might work without it
@@ -296,32 +327,32 @@ def load_preprocessor():
 def _safe_load_model(model_path):
     """Safely load a model, handling LogisticRegression multi_class attribute errors."""
     from sklearn.linear_model import LogisticRegression
-    
+
     try:
         # First try normal loading
         return joblib.load(model_path)
     except AttributeError as e:
-        if 'multi_class' in str(e):
+        if "multi_class" in str(e):
             # Error during unpickling - try with patched LogisticRegression
             # Temporarily patch __setstate__ to handle missing multi_class
             original_setstate = None
-            if hasattr(LogisticRegression, '__setstate__'):
+            if hasattr(LogisticRegression, "__setstate__"):
                 original_setstate = LogisticRegression.__setstate__
-                
+
                 def safe_setstate(self, state):
                     """Safe setstate that adds multi_class if missing."""
                     # Ensure multi_class is in state
-                    if 'multi_class' not in state:
-                        state['multi_class'] = 'auto'
+                    if "multi_class" not in state:
+                        state["multi_class"] = "auto"
                     # Call original setstate
                     if original_setstate:
                         original_setstate(self, state)
                     # Double-check multi_class exists
-                    if not hasattr(self, 'multi_class'):
-                        self.multi_class = 'auto'
-                
+                    if not hasattr(self, "multi_class"):
+                        self.multi_class = "auto"
+
                 LogisticRegression.__setstate__ = safe_setstate
-            
+
             try:
                 model = joblib.load(model_path)
                 # Restore original setstate
@@ -339,38 +370,38 @@ def _safe_load_model(model_path):
 
 def _patch_logistic_regression_model(model):
     """Patch LogisticRegression model to add multi_class attribute if missing.
-    
+
     This fixes compatibility issues with scikit-learn versions where multi_class
     is a parameter but code tries to access it as an attribute.
     """
     from sklearn.linear_model import LogisticRegression
     from sklearn.pipeline import Pipeline
-    
+
     # Handle standalone LogisticRegression
     if isinstance(model, LogisticRegression):
-        if not hasattr(model, 'multi_class'):
+        if not hasattr(model, "multi_class"):
             # Set default value - 'auto' is the default for binary classification
             try:
-                model.multi_class = 'auto'
+                model.multi_class = "auto"
             except Exception:
                 # If direct assignment fails, try via __dict__
                 try:
-                    model.__dict__['multi_class'] = 'auto'
+                    model.__dict__["multi_class"] = "auto"
                 except Exception:
                     pass
     # Handle pipelines that might contain LogisticRegression
     elif isinstance(model, Pipeline):
         for step_name, step_obj in model.steps:
             if isinstance(step_obj, LogisticRegression):
-                if not hasattr(step_obj, 'multi_class'):
+                if not hasattr(step_obj, "multi_class"):
                     try:
-                        step_obj.multi_class = 'auto'
+                        step_obj.multi_class = "auto"
                     except Exception:
                         try:
-                            step_obj.__dict__['multi_class'] = 'auto'
+                            step_obj.__dict__["multi_class"] = "auto"
                         except Exception:
                             pass
-    
+
     return model
 
 
@@ -426,10 +457,10 @@ def load_models(config_dict):
         try:
             # Use safe loading function that handles multi_class AttributeError
             model = _safe_load_model(model_path)
-            
+
             # Additional patch for LogisticRegression models (defensive)
             model = _patch_logistic_regression_model(model)
-            
+
             # Get model-specific threshold, fallback to default
             model_threshold = thresholds_dict.get(model_key, default_threshold)
             models[model_key] = {
@@ -456,21 +487,22 @@ def predict_with_model(model_obj, processed_input, is_pipeline=False):
     try:
         # Both pipelines and models use preprocessed input
         # Pipelines include SMOTE but are trained on preprocessed data
-        
+
         # Handle LogisticRegression multi_class attribute error
         # This can occur due to scikit-learn version mismatches
         from sklearn.linear_model import LogisticRegression
-        if isinstance(model_obj, LogisticRegression) and not hasattr(model_obj, 'multi_class'):
+
+        if isinstance(model_obj, LogisticRegression) and not hasattr(model_obj, "multi_class"):
             params = model_obj.get_params()
-            model_obj.multi_class = params.get('multi_class', 'auto')
-        
+            model_obj.multi_class = params.get("multi_class", "auto")
+
         try:
             prob = model_obj.predict_proba(processed_input)[0][1]
         except AttributeError as ae:
             # Catch AttributeError specifically for multi_class and retry after patching
-            if 'multi_class' in str(ae) and isinstance(model_obj, LogisticRegression):
+            if "multi_class" in str(ae) and isinstance(model_obj, LogisticRegression):
                 params = model_obj.get_params()
-                model_obj.multi_class = params.get('multi_class', 'auto')
+                model_obj.multi_class = params.get("multi_class", "auto")
                 prob = model_obj.predict_proba(processed_input)[0][1]
             else:
                 raise
@@ -524,90 +556,115 @@ def load_shap_explainer(_model, background_data):
     # Check if model is a tree-based model (XGBoost, LightGBM, etc.)
     # Also check if it's a pipeline that contains a tree model
     from sklearn.pipeline import Pipeline
-    
+
     model_to_use = _model
     model_type_str = str(type(_model)).lower()
-    
+
     # If it's a pipeline, try to extract the tree model
     if isinstance(_model, Pipeline):
         # Look for XGBoost or tree model in pipeline steps
         for step_name, step_obj in _model.steps:
             step_type_str = str(type(step_obj)).lower()
-            if any(xgb_type in step_type_str for xgb_type in ['xgb', 'lightgbm', 'catboost', 'randomforest', 'decisiontree', 'gradientboosting']):
+            if any(
+                xgb_type in step_type_str
+                for xgb_type in [
+                    "xgb",
+                    "lightgbm",
+                    "catboost",
+                    "randomforest",
+                    "decisiontree",
+                    "gradientboosting",
+                ]
+            ):
                 model_to_use = step_obj
                 model_type_str = step_type_str
                 break
-    
+
     # More robust XGBoost detection - check for XGBClassifier class name or module
     try:
         import xgboost as xgb
-        is_xgboost_model = isinstance(model_to_use, xgb.XGBClassifier) or isinstance(model_to_use, xgb.XGBRegressor)
+
+        is_xgboost_model = isinstance(model_to_use, xgb.XGBClassifier) or isinstance(
+            model_to_use, xgb.XGBRegressor
+        )
     except ImportError:
         is_xgboost_model = False
-    
-    is_tree_model = is_xgboost_model or any(xgb_type in model_type_str for xgb_type in ['xgb', 'lightgbm', 'catboost', 'randomforest', 'decisiontree', 'gradientboosting'])
-    
+
+    is_tree_model = is_xgboost_model or any(
+        xgb_type in model_type_str
+        for xgb_type in [
+            "xgb",
+            "lightgbm",
+            "catboost",
+            "randomforest",
+            "decisiontree",
+            "gradientboosting",
+        ]
+    )
+
     if not is_tree_model:
         return None
-    
+
     try:
         # For XGBoost models, fix base_score issue and try multiple approaches
         model_for_explainer = model_to_use
-        explainer_creation_method = "direct_model"
-        
+
         if is_xgboost_model:
-            # Fix base_score attribute if it's stored as a string (XGBoost version compatibility issue)
+            # Fix base_score attribute if it's stored as a string
+            # (XGBoost version compatibility issue)
             # This fixes: ValueError: could not convert string to float: '[5E-1]'
             try:
-                if hasattr(model_to_use, 'get_booster'):
+                if hasattr(model_to_use, "get_booster"):
                     booster = model_to_use.get_booster()
                     # Get the base_score from booster config and fix it if needed
                     config = booster.save_config()
                     import json as json_lib
+
                     config_dict = json_lib.loads(config)
-                    
+
                     # Fix base_score if it's a string array like '[5E-1]'
-                    base_score_fixed = False
-                    if 'learner' in config_dict and 'learner_model_param' in config_dict['learner']:
-                        base_score_param = config_dict['learner']['learner_model_param'].get('base_score', None)
-                        if base_score_param and isinstance(base_score_param, str) and base_score_param.startswith('['):
+                    if "learner" in config_dict and "learner_model_param" in config_dict["learner"]:
+                        base_score_param = config_dict["learner"]["learner_model_param"].get(
+                            "base_score", None
+                        )
+                        if (
+                            base_score_param
+                            and isinstance(base_score_param, str)
+                            and base_score_param.startswith("[")
+                        ):
                             # Parse string like '[5E-1]' to float
                             try:
-                                base_score_str = base_score_param.strip('[]')
+                                base_score_str = base_score_param.strip("[]")
                                 base_score_float = float(base_score_str)
                                 # Update the config with proper float string representation
-                                config_dict['learner']['learner_model_param']['base_score'] = str(base_score_float)
-                                
+                                config_dict["learner"]["learner_model_param"]["base_score"] = str(
+                                    base_score_float
+                                )
+
                                 # Load the fixed config into the booster
                                 booster.load_config(json_lib.dumps(config_dict))
-                                base_score_fixed = True
                             except (ValueError, KeyError, TypeError):
                                 # If parsing fails, continue with booster as-is
                                 pass
-                    
+
                     # Use the booster (fixed or original)
                     model_for_explainer = booster
-                    explainer_creation_method = "get_booster_fixed" if base_score_fixed else "get_booster"
-            except Exception as e:
+            except Exception:
                 # If fixing fails, try using booster directly or model itself
                 try:
-                    if hasattr(model_to_use, 'get_booster'):
+                    if hasattr(model_to_use, "get_booster"):
                         model_for_explainer = model_to_use.get_booster()
-                        explainer_creation_method = "get_booster_fallback"
-                    elif hasattr(model_to_use, 'booster_') and model_to_use.booster_ is not None:
+                    elif hasattr(model_to_use, "booster_") and model_to_use.booster_ is not None:
                         model_for_explainer = model_to_use.booster_
-                        explainer_creation_method = "booster_attribute"
                     else:
                         model_for_explainer = model_to_use
-                        explainer_creation_method = "direct_model_fallback"
                 except Exception:
                     model_for_explainer = model_to_use
-                    explainer_creation_method = "direct_model_fallback"
-        
+
         # Try creating explainer with background data first, fallback to without if it fails
         explainer = None
         last_error = None
-        
+
         if background_data is not None:
             try:
                 # Ensure background_data is numpy array
@@ -629,7 +686,7 @@ def load_shap_explainer(_model, background_data):
         else:
             # No background data, use TreeExplainer without background
             explainer = shap.TreeExplainer(model_for_explainer)
-        
+
         return explainer
     except AttributeError:
         # Model might not support TreeExplainer
@@ -637,8 +694,9 @@ def load_shap_explainer(_model, background_data):
     except Exception as e:
         # Store error for display
         error_msg = f"{type(e).__name__}: {str(e)}"
-        if hasattr(e, '__traceback__'):
+        if hasattr(e, "__traceback__"):
             import traceback as tb
+
             error_msg += f"\n\nTraceback:\n{tb.format_exc()}"
         load_shap_explainer._last_error = error_msg
         return None
@@ -1133,7 +1191,7 @@ if predict_button:
             try:
                 explainer = load_shap_explainer(champion_model_obj, background_data)
                 # Get error from function if it failed
-                if explainer is None and hasattr(load_shap_explainer, '_last_error'):
+                if explainer is None and hasattr(load_shap_explainer, "_last_error"):
                     shap_error = load_shap_explainer._last_error
             except Exception as e:
                 shap_error = f"{type(e).__name__}: {str(e)}"
@@ -1313,7 +1371,7 @@ if predict_button:
                 # Show more detailed error information
                 model_type = str(type(champion_model_obj))
                 error_msg = f"**Model Type:** {model_type}\n\n"
-                
+
                 if shap_error:
                     error_msg += f"**Error Details:** {shap_error}\n\n"
                     error_msg += "This error occurred while creating the SHAP TreeExplainer. "
@@ -1326,9 +1384,15 @@ if predict_button:
                     error_msg += "2. Try retraining the model with the current XGBoost version\n"
                     error_msg += "3. Check if the model file is corrupted"
                 else:
-                    error_msg += "SHAP explanations require a tree-based model (XGBoost, LightGBM, etc.). "
-                    error_msg += "Ensure the champion model (xgboost_weighted_optimized.pkl) is an XGBoost model."
-                
+                    error_msg += (
+                        "SHAP explanations require a tree-based model "
+                        "(XGBoost, LightGBM, etc.). "
+                    )
+                    error_msg += (
+                        "Ensure the champion model (xgboost_weighted_optimized.pkl) "
+                        "is an XGBoost model."
+                    )
+
                 st.error(error_msg)
         else:
             st.warning("⚠️ Champion model not found.")
