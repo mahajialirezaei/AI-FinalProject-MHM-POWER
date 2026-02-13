@@ -311,6 +311,14 @@ python -m src.training.optimize_weighted_xgboost
 
 ### Model Evaluation
 
+#### Threshold Tuning
+
+```bash
+python -m src.evaluation.tune_threshold
+```
+
+Finds optimal decision threshold and updates `config/config.yaml`.
+
 #### Compare All Models
 
 ```bash
@@ -337,13 +345,7 @@ Generates SHAP plots for model interpretability:
 - Global feature importance
 - Local explanations for individual predictions
 
-#### Threshold Tuning
 
-```bash
-python -m src.evaluation.tune_threshold
-```
-
-Finds optimal decision threshold and updates `config/config.yaml`.
 
 ### Web Interface
 
